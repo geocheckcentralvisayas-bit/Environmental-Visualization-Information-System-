@@ -11,7 +11,8 @@ import { dataUrl } from '../lib/api';
 import {
   GAP_META, LEGAL_STATUS_STYLE, LIFECYCLE_STYLE, REGISTER_META, REGISTER_ORDER, RISK_LABELS, escapeHtml, formatDate, formatNumber, riskColor,
 } from '../lib/format';
-import type { Facility, LegalFacilitySummary, SpatialLayer, Permit } from '../types';
+import { swmDisposalPopupFor, swmFacilityPopup } from './SwmMap';
+import type { Facility, LegalFacilitySummary, SpatialLayer, Permit, SwmDisposalProject, SwmFacility } from '../types';
 
 const BASEMAPS: Record<string, { label: string; url: string; attribution: string; maxZoom?: number }> = {
   satellite: {
@@ -42,11 +43,12 @@ const BASEMAPS: Record<string, { label: string; url: string; attribution: string
   },
 };
 
-type PointMode = 'companies' | 'permits' | 'none';
+type PointMode = 'companies' | 'permits' | 'swm' | 'none';
 
 const MODE_LABELS: Record<PointMode, string> = {
   companies: 'Registers',
   permits: 'Permits',
+  swm: 'Solid waste',
   none: 'None',
 };
 
@@ -77,6 +79,7 @@ export function MapView({
   const markersRef = useRef<Array<{ lat: number; lon: number; marker: L.CircleMarker; siteId: string | null; siteIds: string[]; ensurePopup: () => void }>>([]);
   const highlightRef = useRef<L.CircleMarker | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const swmRef = useRef<L.LayerGroup | null>(null);
   const legalRingRef = useRef<L.LayerGroup | null>(null);
   const focusRendererRef = useRef<L.SVG | null>(null);
   const appliedFocusRef = useRef(0);
@@ -85,6 +88,7 @@ export function MapView({
   const overlayRequests = useRef<Map<string, Promise<unknown>>>(new Map());
   const filteredFacilities = useFilteredFacilities();
   const filteredPermits = useFilteredPermits();
+  const swm = useDashboard((state) => state.swm);
   const layers = useDashboard((state) => state.data?.layers.layers ?? []);
   const legal = useDashboard((state) => state.data?.legal);
   const selectSite = useDashboard((state) => state.selectSite);
@@ -114,6 +118,22 @@ export function MapView({
     if (mode === 'companies') return filteredFacilities.filter((facility) => facility.lat !== null && facility.lon !== null);
     return [];
   }, [mode, filteredFacilities, filteredPermits]);
+
+  // Solid waste points use the same Cebu + Bohol scope as the rest of the
+  // dashboard. MRFs come from the IIS register; disposal sites from ECC/CNC.
+  const swmFacilities = useMemo(
+    () => (swm?.facilities ?? []).filter(
+      (facility) => ['Cebu', 'Bohol'].includes(facility.province) && facility.lat !== null && facility.lon !== null,
+    ),
+    [swm],
+  );
+  const swmDisposal = useMemo(
+    () => (swm?.disposal.projects ?? []).filter(
+      (project) => ['Cebu', 'Bohol'].includes(project.province) && project.lat !== null && project.lon !== null,
+    ),
+    [swm],
+  );
+  const swmPlotted = swmFacilities.length + swmDisposal.length;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -267,6 +287,46 @@ export function MapView({
     map.addLayer(parent);
     layerGroupRef.current = parent;
   }, [points, mode, selectSite, legal, openLegalEntity]);
+
+  /* Solid waste layer: MRF points plus ECC/CNC disposal approvals. */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (swmRef.current) {
+      map.removeLayer(swmRef.current);
+      swmRef.current = null;
+    }
+    if (mode !== 'swm' || !swmPlotted) return;
+
+    const group = L.layerGroup();
+    for (const facility of swmFacilities as SwmFacility[]) {
+      const marker = L.circleMarker([facility.lat as number, facility.lon as number], {
+        radius: facility.barangays.length > 1 ? 6 : 4.5,
+        color: '#f8fafc',
+        weight: 1,
+        fillColor: facility.status === 'Operational' ? '#34d399' : '#fb7185',
+        fillOpacity: 0.92,
+      });
+      marker.bindPopup(swmFacilityPopup(facility), { maxWidth: 330, minWidth: 250 });
+      group.addLayer(marker);
+    }
+
+    const disposalColor = { landfill: '#fbbf24', dumpsite: '#fb923c', transfer: '#a78bfa' } as const;
+    for (const project of swmDisposal as SwmDisposalProject[]) {
+      const marker = L.circleMarker([project.lat as number, project.lon as number], {
+        radius: 6,
+        color: '#0b1411',
+        weight: 2,
+        fillColor: disposalColor[project.category],
+        fillOpacity: 0.96,
+      });
+      marker.bindPopup(swmDisposalPopupFor(project), { maxWidth: 350, minWidth: 270 });
+      group.addLayer(marker);
+    }
+
+    group.addTo(map);
+    swmRef.current = group;
+  }, [mode, swmFacilities, swmDisposal, swmPlotted, ready]);
 
   /*
    * Legal ring: a thin outer circle on establishments that appear in the NOV /
@@ -529,9 +589,13 @@ export function MapView({
   const fitToData = () => {
     const map = mapRef.current;
     if (!map) return;
-    const coords = points
-      .map((point) => (point.lat !== null && point.lon !== null ? [point.lat, point.lon] as [number, number] : null))
-      .filter(Boolean) as [number, number][];
+    const coords = (mode === 'swm'
+      ? [
+          ...swmFacilities.map((facility) => [facility.lat as number, facility.lon as number] as [number, number]),
+          ...swmDisposal.map((project) => [project.lat as number, project.lon as number] as [number, number]),
+        ]
+      : points.map((point) => (point.lat !== null && point.lon !== null ? [point.lat, point.lon] as [number, number] : null)).filter(Boolean) as [number, number][]
+    );
     if (!coords.length) return;
     map.fitBounds(L.latLngBounds(coords), { padding: [36, 36], maxZoom: 13 });
   };
@@ -563,9 +627,31 @@ export function MapView({
           <MapIcon size={14} className="text-emerald-300" />
           <span className="text-[11px] font-semibold text-slate-200">Central Visayas</span>
           <span className="text-[10px] text-slate-500">
-            {points.length.toLocaleString()} {mode === 'permits' ? 'permits' : mode === 'none' ? 'points hidden' : 'facilities'} plotted
+            {mode === 'swm'
+              ? `${formatNumber(swmPlotted)} solid waste points plotted`
+              : `${points.length.toLocaleString()} ${mode === 'permits' ? 'permits' : mode === 'none' ? 'points hidden' : 'facilities'} plotted`}
           </span>
         </div>
+        {mode === 'swm' && (
+          <div className="pointer-events-auto rounded-xl border border-white/10 bg-ink-900/90 px-2.5 py-2 shadow-panel backdrop-blur">
+            <div className="mb-1 text-[8.5px] font-semibold uppercase tracking-[0.16em] text-slate-500">Solid waste points</div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+              {[
+                ['Operational MRF', '#34d399'],
+                ['Non-operational MRF', '#fb7185'],
+                ['Sanitary landfill', '#fbbf24'],
+                ['Dumpsite / waste dump', '#fb923c'],
+                ['Transfer station', '#a78bfa'],
+              ].map(([label, color]) => (
+                <span key={label} className="inline-flex items-center gap-1 text-[9.5px] text-slate-300">
+                  <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="mt-1 text-[8.5px] text-slate-500">Cebu and Bohol only · disposal sites are ECC/CNC approvals</div>
+          </div>
+        )}
         {mode === 'companies' && (
           <div className="pointer-events-auto rounded-xl border border-white/10 bg-ink-900/90 px-2.5 py-2 shadow-panel backdrop-blur">
             <div className="mb-1 text-[8.5px] font-semibold uppercase tracking-[0.16em] text-slate-500">Registers on marker</div>
@@ -676,8 +762,8 @@ export function MapView({
             {showPoints && (
               <>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Points</div>
-                <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg border border-white/10 bg-ink-950/60 p-0.5">
-                  {(['companies', 'permits', 'none'] as PointMode[]).map((value) => (
+                <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-ink-950/60 p-0.5">
+                  {(['companies', 'permits', 'swm', 'none'] as PointMode[]).map((value) => (
                     <button
                       key={value}
                       type="button"
@@ -781,9 +867,11 @@ export function MapView({
         <div className="rounded-lg border border-white/10 bg-ink-900/90 px-2.5 py-1.5 text-[9.5px] text-slate-500 shadow-panel backdrop-blur">
           {mode === 'permits'
             ? 'Points coloured by permit lifecycle'
-            : mode === 'companies'
-              ? 'One dot per establishment · badge = registers held'
-              : 'Point layer hidden'}
+            : mode === 'swm'
+              ? 'Cebu & Bohol only · MRF status + ECC/CNC disposal sites'
+              : mode === 'companies'
+                ? 'One dot per establishment · badge = registers held'
+                : 'Point layer hidden'}
         </div>
       </div>
 

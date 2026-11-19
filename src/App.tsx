@@ -27,10 +27,11 @@ const EccUltralistPage = lazy(() => import('./pages/EccUltralist').then((m) => (
 const AdminPage = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminPage })));
 const LegalPage = lazy(() => import('./pages/Legal').then((m) => ({ default: m.LegalPage })));
 const PCOCornerPage = lazy(() => import('./pages/PCOCorner').then((m) => ({ default: m.PCOCorner })));
+const SolidWastePage = lazy(() => import('./pages/SolidWaste').then((m) => ({ default: m.SolidWastePage })));
 
 const PAGE_IDS: PageId[] = [
   'overview', 'sites', 'dp', 'pto', 'renewal', 'map',
-  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
+  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'swm', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
 ];
 
 function renderPage(page: PageId) {
@@ -47,6 +48,7 @@ function renderPage(page: PageId) {
     case 'reports': return <ReportsPage />;
     case 'about': return <AboutPage />;
     case 'hw': return <HazardousWastePage />;
+    case 'swm': return <SolidWastePage />;
     case 'clearances': return <ClearancesPage />;
     case 'ecc-ultralist': return <EccUltralistPage />;
     case 'admin': return <AdminPage />;

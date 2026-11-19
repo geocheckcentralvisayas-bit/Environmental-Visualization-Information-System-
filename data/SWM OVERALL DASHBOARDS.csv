@@ -1,0 +1,135 @@
+﻿Province,LGU,CONCATENATE,"Actual Location
+or
+Barangay",Concatenate,Gecoordinates,IIS Transaction Number,MRF Status
+Cebu,Barili,CebuBarili,Poblacion,CebuBariliPoblacion,"10.11702, 123.50887",R7-2025-003921,Operational
+Bohol,Jagna,BoholJagna2016,Canjulao,BoholJagnaCanjulao,"9.653923, 124.359751",R7-2025-020049,Non-Operational
+Bohol,PRESIDENT CARLOS P. GARCIA,PRESIDENT CARLOS P. GARCIA2019,San Jose,BoholPRESIDENT CARLOS P. GARCIASan Jose,"10.116890, 124.557394",R7-2025-015745,Non-Operational
+Siquijor,San Juan,SiquijorSan Juan2019,Solangon,SiquijorSan JuanSolangon,"9.180550, 123.493710",R7-2025-001217,Operational
+Bohol,Panglao,BoholPanglao2019,Tangnan,BoholPanglaoTangnan,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Tawala,BoholPanglaoTawala,"9.595570, 123.763290",R7-2025-007847,Operational
+Cebu,Consolacion,CebuConsolacion2019,Tayud,CebuConsolacionTayud,"10.362603, 123.982470",R7-2025-007765,Non-Operational
+Negros Oriental,Dauin,Negros OrientalDauin2019,Tugawe,Negros OrientalDauinTugawe,"9.20052, 123.25025",R7-2025-001128,Non-Operational
+Cebu,Malabuyoc,CebuMalabuyoc2019,Poblacion,CebuMalabuyocPoblacion,"9.656577, 123.325515",R7-2025-001820,Operational
+Negros Oriental,Guihulngan,Negros OrientalGuihulngan,Poblacion,Negros OrientalGuihulnganPoblacion,"10.132778, 123.277778",R7-2025-003631,Non-Operational
+Negros Oriental,Tanjay,Negros OrientalTanjay,Azagra,Negros OrientalTanjayAzagra,"9.46715, 123.1451",R7-2025-001853,Non-Operational
+Cebu,Pinamungajan,CebuPinamungajan,Binabag,CebuPinamungajanBinabag,"10.2577778,123.595",R7-2025-003960,Operational
+Cebu,Tuburan,CebuTuburan2016,Cogon,CebuTuburanCogon,"10.712946 , 123.837303",R7-2025-003890,Operational
+Cebu,San Fernando,CebuSan Fernando2018,Magsico,CebuSan FernandoMagsico,"10.16104, 123.70743",R7-2025-005078,Operational
+Negros Oriental,Bais City,Negros OrientalBais City2019,Cambanjo 2,Negros OrientalBais CityCambanjo 2,"10.16104, 123.70744",R7-2025-006213,Operational
+Bohol,Panglao,BoholPanglao2019,Danao,BoholPanglaoDanao,"9.595570, 123.763290",R7-2025-007847,Operational
+Negros Oriental,La Libertad,Negros OrientalLa Libertad2019,Poblacion,Negros OrientalLa LibertadPoblacion,"9.582780, 123.752860",R7-2025-001477,Non-Operational
+Negros Oriental,Zamboanguita,Negros OrientalZamboanguita2016,Mayabon,Negros OrientalZamboanguitaMayabon,"9.1158, 123.14194",R7-2025-002409,Operational
+Cebu,Daanbantayan,CebuDaanbantayan2016,Poblacion,CebuDaanbantayanPoblacion,"11.253800, 124.005897",R7-2025-016132,Operational
+Negros Oriental,Tayasan,Negros OrientalTayasan2016,Numnum,Negros OrientalTayasanNumnum,"9.90992, 123.14196",R7-2025-002382,Operational
+Cebu,Bogo,CebuBogo2017,Gairan,CebuBogoGairan,"11.0533328, 124.01805878",R7-2025-005884,Operational
+Bohol,Tagbilaran,BoholTagbilaran2017,Cabawan,BoholTagbilaranCabawan,"9.68502, 123.90078",R7-2025-011847,Non-Operational
+Cebu,Mandaue,CebuMandaue2016,Ibabao,CebuMandaueIbabao,,R7-2025-023898,Non-Operational
+Bohol,Tubigon,BoholTubigon2016,Macaas,BoholTubigonMacaas,"9.956498, 123.995421",R7-2025-017180,Operational
+Cebu,Aloguinsan,CebuAloguinsan2016,Tampa-an,CebuAloguinsanTampa-an,"10.209261, 123.569703",R7-2025-003915,Operational
+Cebu,Poro,CebuPoro2016,Mercedes,CebuPoroMercedes,"10.661944, 124.405000",R7-2025-007236,Operational
+Cebu,Consolacion,CebuConsolacion2016,Polog,CebuConsolacionPolog,"10.2510N, 123.5621E",R7-2025-001734,Operational
+Cebu,Mandaue,CebuMandaue2016,Tabok,CebuMandaueTabok,,R7-2025-023898,Non-Operational
+Cebu,Sogod,CebuSogod2016,Poblacion,CebuSogodPoblacion,"10.74874, 124.00522",R7-2025-003461,Operational
+Cebu,Compostela,CebuCompostela,"Tanke, Basak","CebuCompostelaTanke, Basak","10.492536, 123.952475",R7-2025-006053,Non-Operational
+Cebu,Cebu,CebuCebu2016,Talamban,CebuCebuTalamban,,R7-2025-006453,Non-Operational
+Bohol,Talibon,BoholTalibon2016,San Roque,BoholTalibonSan Roque,"10.078372, 124.303182",R7-2025-010394,Operational
+Bohol,Clarin,BoholClarin2017,Buangan,BoholClarinBuangan,"9.934211, 124.026654",R7-2025-012020,Operational
+Siquijor,Larena,SiquijorLarena2017,Calunasan,SiquijorLarenaCalunasan,"9.23574, 123.57637",R7-2025-001247,Non-Operational
+Cebu,Dumanjug,CebuDumanjug2017,Cogon,CebuDumanjugCogon,"10.04017, 123.450582",R7-2025-008086,Non-Operational
+Cebu,Malabuyoc,CebuMalabuyoc2017,Poblacion,CebuMalabuyocPoblacion,"9.656535, 123.325683",R7-2025-020934,Operational
+Bohol,Inabanga,BoholInabanga2017,Lonor Sur,BoholInabangaLonor Sur,"10.002728, 124.076827",R7-2025-014686,Operational
+Cebu,Danao,CebuDanao2017,Poblacion,CebuDanaoPoblacion,"10.517500, 124.026139",R7-2025-002092,Operational
+Cebu,Sibonga,CebuSibonga2017,Poblacion,CebuSibongaPoblacion,"10.021258, 123.615817",R7-2025-002347,Operational
+Bohol,Candijay,BoholCandijay2017,Poblacion,BoholCandijayPoblacion,"9.819444,124.494167",R7-2025-012101,Operational
+Cebu,Cordova,CebuCordova,Gabi,CebuCordovaGabi,10.25949 123.95062,R7-2025-010298,Non-Operational
+Bohol,Corella,BoholCorella2017,Poblacion,BoholCorellaPoblacion,"9.688942, 123.919981",R7-2025-010393,Non-Operational
+Bohol,Tagbilaran,BoholTagbilaran2017,Public Market,BoholTagbilaranPublic Market,"9.68502, 123.90078",R7-2025-011847,Non-Operational
+Bohol,Tubigon,BoholTubigon2017,Centro,BoholTubigonCentro,"9.956498, 123.995421",R7-2025-014680,Non-Operational
+Bohol,Ubay,BoholUbay2017,Poblacion,BoholUbayPoblacion,"9.996043, 124.447531",R7-2025-001698,Operational
+Bohol,Valencia,BoholValencia2017,Poblacion Oriental,BoholValenciaPoblacion Oriental,"9.613936, 124.210275",R7-2025-014683,Operational
+Cebu,Alegria,CebuAlegria2017,San Roque,CebuAlegriaSan Roque,"9.733524, 123.339993",R7-2025-001639,Operational
+Cebu,San Remigio,CebuSan Remigio2018,Anapog,CebuSan RemigioAnapog,"11.024444, 123.905000",R7-2025-008091,Operational
+Cebu,Bantayan,CebuBantayan2018,Bantique,CebuBantayanBantique,"11.179167, 123.725556",R7-2025-010788,Operational
+Cebu,Bogo,CebuBogo2018,Binabag,CebuBogoBinabag,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,Tabogon,CebuTabogon2018,Kal-anan,CebuTabogonKal-anan,"10.942207, 124.019774",R7-2025-004491,Non-Operational
+Cebu,Catmon,CebuCatmon,Corazon Poblacion,CebuCatmonCorazon Poblacion,"10.722820, 124.011030",R7-2025-007529,Non-Operational
+Cebu,Alcantara,CebuAlcantara2018,Candabong,CebuAlcantaraCandabong,"9.967400, 123.455200",R7-2025-008085,Operational
+Cebu,Bogo,CebuBogo2018,Cayang,CebuBogoCayang,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,Bogo,CebuBogo2018,Cogon,CebuBogoCogon,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,Cordova,CebuCordova2018,Gabi,CebuCordovaGabi,10.258595 123.95191,R7-2025-001740,Operational
+Cebu,Bogo,CebuBogo2018,Gairan,CebuBogoGairan,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,Madridejos,CebuMadridejos2018,Kangwayan,CebuMadridejosKangwayan,"11.248333, 123.732222",R7-2025-008538,Operational
+Cebu,Medellin,CebuMedellin2018,Poblacion,CebuMedellinPoblacion,"11.13056, 123.96333",R7-2025-012253,Non-Operational
+Cebu,San Remigio,CebuSan Remigio2018,Kayam,CebuSan RemigioKayam,"11.024444, 123.905000",R7-2025-008091,Operational
+Cebu,Bogo,CebuBogo2018,La Purisima,CebuBogoLa Purisima,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,San Remigio,CebuSan Remigio2018,Lambusan,CebuSan RemigioLambusan,"11.024444, 123.905000",R7-2025-008091,Operational
+Cebu,Liloan,CebuLiloan,Poblacion,CebuLiloanPoblacion,"10.40235,123.98965",R7-2025-020350,Operational
+Cebu,Bogo,CebuBogo2018,Lapaz,CebuBogoLapaz,"10.965881, 123.964014",R7-2025-010039,Operational
+Cebu,Madridejos,CebuMadridejos2018,Mancilang,CebuMadridejosMancilang,"11.248333, 123.732222",R7-2025-008538,Operational
+Cebu,Tabuelan,CebuTabuelan2018,Maravilla,CebuTabuelanMaravilla,"10.84388889, 123.8841666",R7-2025-004859,Non-Operational
+Cebu,Santa Fe,CebuSanta Fe2018,Maricaban,CebuSanta FeMaricaban,"11.154167, 123.782500",R7-2025-002146,Operational
+Cebu,Bantayan,CebuBantayan2018,Mojon,CebuBantayanMojon,"11.179167, 123.725556",R7-2025-010788,Operational
+Cebu,Asturias,CebuAsturias2018,Poblacion,CebuAsturiasPoblacion,"10.569753, 123.716027",R7-2025-005513,Operational
+Cebu,Ginatilan,CebuGinatilan2018,Poblacion,CebuGinatilanPoblacion,"9.57583, 123.31797",R7-2025-001688,Operational
+Cebu,Madridejos,CebuMadridejos2018,Poblacion,CebuMadridejosPoblacion,"11.248333, 123.732222",R7-2025-008538,Operational
+Cebu,San Remigio,CebuSan Remigio2018,Poblacion,CebuSan RemigioPoblacion,"11.024444, 123.905000",R7-2025-008091,Operational
+Cebu,Tabuelan,CebuTabuelan2018,Poblacion,CebuTabuelanPoblacion,"10.84388889, 123.8841666",R7-2025-004859,Non-Operational
+Cebu,Cebu,CebuCebu,Apas,CebuCebuApas,"10.346080, 123.900450",R7-2025-006334,Non-Operational
+Cebu,Daanbantayan,CebuDaanbantayan2018,Malingin,CebuDaanbantayanMalingin,"11.216203, 124.015892",R7-2025-011010,Operational
+Cebu,Daanbantayan,CebuDaanbantayan2018,Maya,CebuDaanbantayanMaya,"11.216203, 124.015892",R7-2025-011010,Operational
+Cebu,Daanbantayan,CebuDaanbantayan2018,Pajo,CebuDaanbantayanPajo,"11.216203, 124.015892",R7-2025-011010,Operational
+Cebu,Bantayan,CebuBantayan2018,Suba,CebuBantayanSuba,"11.179167, 123.725556",R7-2025-010788,Operational
+Cebu,Tabuelan,CebuTabuelan2018,Tabunok,CebuTabuelanTabunok,"10.84388889, 123.8841666",R7-2025-004859,Non-Operational
+Cebu,San Remigio,CebuSan Remigio2018,Tambongon,CebuSan RemigioTambongon,"11.024444, 123.905000",R7-2025-008091,Operational
+Cebu,Daanbantayan,CebuDaanbantayan2018,Tapilon,CebuDaanbantayanTapilon,"11.216203, 124.015892",R7-2025-011010,Operational
+Cebu,Bantayan,CebuBantayan2018,Ticad,CebuBantayanTicad,"11.179167, 123.725556",R7-2025-010788,Operational
+Cebu,Daanbantayan,CebuDaanbantayan2018,Tinubdan,CebuDaanbantayanTinubdan,"11.216203, 124.015892",R7-2025-011010,Operational
+Cebu,Boljoon,CebuBoljoon2019,Arbor,CebuBoljoonArbor,"9.646082, 123.465735",R7-2025-009228,Non-Operational
+Cebu,Mandaue,CebuMandaue,Canduman,CebuMandaueCanduman,"10.37043, 123.93174",R7-2025-009849,Operational
+Cebu,Alcoy,CebuAlcoy2019,Atabay,CebuAlcoyAtabay,"9.701966, 123.497726",R7-2025-001656,Operational
+Negros Oriental,Ayungon,Negros OrientalAyungon2019,Awa-an,Negros OrientalAyungonAwa-an,"9.87705, 123.14285",R7-2025-001618,Operational
+Negros Oriental,Jimalalud,Negros OrientalJimalalud2019,Bala-as,Negros OrientalJimalaludBala-as,"10.00416, 123.20682",R7-2025-002343,Non-Operational
+Cebu,Lapu Lapu,CebuLapu Lapu2019,Babag,CebuLapu LapuBabag,"10.274506, 123.942381",R7-2025-013712,Non-Operational
+Negros Oriental,Zamboanguita,Negros OrientalZamboanguita2019,Basak,Negros OrientalZamboanguitaBasak,"9.1151, 123.19997",R7-2025-002313,Operational
+Bohol,Panglao,BoholPanglao2019,Bil-isan,BoholPanglaoBil-isan,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Bolod,BoholPanglaoBolod,"9.595570, 123.763290",R7-2025-007847,Operational
+Negros Oriental,Valencia,Negros OrientalValencia2019,Bong-ao,Negros OrientalValenciaBong-ao,"9.2827, 123.25858",R7-2025-001490,Operational
+Cebu,Moalboal,CebuMoalboal2019,Bungho,CebuMoalboalBungho,"9.944, 123.433 ",R7-2025-003936,Operational
+Cebu,Santander,CebuSantander2019,Bunlan,CebuSantanderBunlan,"9.43885, 123.32085",R7-2025-005565,Non-Operational
+Cebu,Liloan,CebuLiloan,Jubay,CebuLiloanJubay,"10.421386 , 123.995548",R7-2025-020350,Operational
+Siquijor,Siquijor,SiquijorSiquijor2019,Caipilan,SiquijorSiquijorCaipilan,"9.192410, 123.484760",R7-2025-002198,Operational
+Negros Oriental,Bais City,Negros OrientalBais City2019,Cambanjo 1,Negros OrientalBais CityCambanjo 1,"10.16104, 123.70744",R7-2025-006213,Operational
+Cebu,Tuburan,CebuTuburan2019,Caridad,CebuTuburanCaridad,"10.66375, 123.81026",R7-2025-004054,Non-Operational
+Cebu,Badian,CebuBadian2019,Dobdob,CebuBadianDobdob,"9.859175, 123.416403",R7-2025-008142,Operational
+Bohol,Panglao,BoholPanglao2019,Libaong,BoholPanglaoLibaong,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Looc,BoholPanglaoLooc,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Lourdes,BoholPanglaoLourdes,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Lourdes Central MRF 1,BoholPanglaoLourdes Central MRF 1,"9.595570, 123.763290",R7-2025-007847,Operational
+Bohol,Panglao,BoholPanglao2019,Lourdes Central MRF 2,BoholPanglaoLourdes Central MRF 2,"9.595570, 123.763290",R7-2025-007847,Operational
+Cebu,Lapu Lapu,CebuLapu Lapu2019,Bankal,CebuLapu LapuBankal,"10.274506, 123.942381",R7-2025-013712,Non-Operational
+Cebu,Argao,CebuArgao2016,Candabong,CebuArgaoCandabong,"9.90421, 123.60238",R7-2025-001801,Operational
+Negros Oriental,Pamplona,Negros OrientalPamplona2019,Magsusunog,Negros OrientalPamplonaMagsusunog,"9.37735, 123.07792",R7-2025-010326,Non-Operational
+Negros Oriental,Bayawan,Negros OrientalBayawan2019,Maninihon,Negros OrientalBayawanManinihon,"9.399916, 122.855751",R7-2025-003652,Operational
+Negros Oriental,Siaton,Negros OrientalSiaton2019,Napacao,Negros OrientalSiatonNapacao,"9.106735, 123.118601",R7-2025-012261,Operational
+Siquijor,Larena,SiquijorLarena2019,Nonoc,SiquijorLarenaNonoc,"9.235000, 123.576000",R7-2025-002365,Non-Operational
+Negros Oriental,Tayasan,Negros OrientalTayasan2019,Numnum,Negros OrientalTayasanNumnum,"9.90992, 123.14196",R7-2025-002703,Non-Operational
+Cebu,Lapu Lapu,CebuLapu Lapu2019,Olango - Sta. Rosa MRF,CebuLapu LapuOlango - Sta. Rosa MRF,"10.274506, 123.942381",R7-2025-013712,Non-Operational
+Cebu,Lapu Lapu,CebuLapu Lapu2019,Olango Hospital,CebuLapu LapuOlango Hospital,"10.274506, 123.942381",R7-2025-013712,Non-Operational
+Bohol,Panglao,BoholPanglao2019,Poblacion,BoholPanglaoPoblacion,"9.595570, 123.763290",R7-2025-007847,Operational
+Negros Oriental,Manjuyod,Negros OrientalManjuyod2019,Poblacion,Negros OrientalManjuyodPoblacion,"9.582780, 123.752860",R7-2025-008598,Operational
+Negros Oriental,Vallehermoso,Negros OrientalVallehermoso2019,Poblacion,Negros OrientalVallehermosoPoblacion,"10.329660, 123.323330",R7-2025-006633,Operational
+,,,,,,,
+,,,,,,,
+Count of MRF Status,Column Labels,,,,,,
+Row Labels,Non-Operational,Operational,Grand Total,,,,
+Bohol,6,18,24,,,,
+Cebu,21,50,71,,,,
+Negros Oriental,7,11,18,,,,
+Siquijor,2,2,4,,,,
+Grand Total,36,81,117,,,,
+,,,,,,,
+,,,,,,,
+,,,,,,,
+,,,,,,,
+,,,,,,,
+,,,,, ,,

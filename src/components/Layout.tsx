@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Building2, CalendarClock, ChevronRight, ClipboardCheck, Database, Droplets, FileDown,
   FileCheck2, FlaskConical, Gavel, Info, LayoutDashboard, Layers3, ListChecks, Map as MapIcon, Menu, PanelLeftClose,
-  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon,
+  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useDashboard, useFilteredPermits, useFilteredSites } from '../store/useDashboard';
@@ -48,6 +48,7 @@ const NAV: { group: string; items: { id: PageId; label: string; icon: typeof Lay
     group: 'Compliance',
     items: [
       { id: 'hw', label: 'Hazardous Waste', icon: FlaskConical },
+      { id: 'swm', label: 'Solid Waste Management (SWM)', icon: Recycle },
       { id: 'clearances', label: 'ECC & CNC', icon: FileCheck2 },
       { id: 'ecc-ultralist', label: 'ECC & CNC Ultralist', icon: FileCheck2 },
     ],
@@ -83,6 +84,7 @@ const PAGE_META: Record<PageId, { title: string; subtitle: string }> = {
   reports: { title: 'Reports & export', subtitle: 'Generate filtered datasets and summary reports' },
   about: { title: 'About & license', subtitle: 'Methodology, credits, DENR directory and version history' },
   hw: { title: 'Hazardous waste register', subtitle: 'Hazardous-waste generators, waste streams and compliance status' },
+  swm: { title: 'Solid waste management', subtitle: 'MRF status, disposal facilities and LGU coverage across Central Visayas' },
   clearances: { title: 'ECC & CNC clearances', subtitle: 'Environmental compliance and non-coverage certificates cross-referenced with DP and PTO' },
   'ecc-ultralist': { title: 'ECC & CNC ultralist', subtitle: 'Approved EIA clearances for Cebu and Bohol intercrossed with DP, PTO and hazardous waste' },
   admin: { title: 'Accounts & activity', subtitle: 'MIS account management and sign-in / export activity log' },
@@ -167,7 +169,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
                       title={item.label}
                     >
                       <Icon size={15} strokeWidth={2} className="nav-icon shrink-0 text-slate-500" />
-                      <span className={clsx('min-w-0 flex-1 truncate text-left', collapsed && 'md:hidden')}>{item.label}</span>
+                      <span className={clsx('min-w-0 flex-1 text-left', collapsed ? 'truncate md:hidden' : 'leading-[1.2]')}>{item.label}</span>
                       {active && <ChevronRight size={12} className={clsx('text-emerald-400/70', collapsed && 'md:hidden')} />}
                     </button>
                   );
@@ -232,6 +234,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               </div>
               <p className="truncate text-[10.5px] text-slate-500">{pageMeta.subtitle}</p>
             </div>
+            {page !== 'swm' && (
             <div className="relative hidden w-[240px] shrink-0 sm:block lg:w-[300px]">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
@@ -246,6 +249,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
                 </button>
               )}
             </div>
+            )}
             <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 py-1.5 text-[10px] text-slate-400 xl:flex">
               <Database size={12} className="text-emerald-400" />
               <span className="font-mono tabular-nums">{permits.length.toLocaleString()}</span> permits
@@ -254,7 +258,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5">
+          <div className={clsx('flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5', page === 'swm' && 'hidden')}>
             <span className="mr-1 hidden shrink-0 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600 sm:block">Filters</span>
             <select className="select h-7 w-auto min-w-[92px] text-[10.5px]" value={String(filters.year)} onChange={(event) => setFilters({ year: event.target.value === 'all' ? 'all' : Number(event.target.value) })}>
               <option value="all">All years</option>
@@ -291,7 +295,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               {meta?.totals.screened.toLocaleString()} permits spatially screened
             </div>
           </div>
-          <div className="px-3 pb-2 sm:hidden">
+          <div className={clsx('px-3 pb-2 sm:hidden', page === 'swm' && 'hidden')}>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input className="input h-8 pl-7" placeholder="Search company, permit, LGU…" value={filters.search} onChange={(event) => setFilters({ search: event.target.value })} />

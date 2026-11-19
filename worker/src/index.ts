@@ -49,6 +49,7 @@ const ROOT_DATA_FILES = new Set([
   'legal.json',
   'pco-database.json',
   'pco-analysis.json',
+  'swm.json',
   'geojson/layers.json',
 ]);
 

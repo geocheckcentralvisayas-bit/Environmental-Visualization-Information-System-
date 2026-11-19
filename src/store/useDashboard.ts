@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useMemo } from 'react';
-import type { Clearance, EccUltraData, EccUltraRecord, Facility, HwRegistration, LayerManifest, LegalData, Meta, PageId, PCOAnalysis, PCORecord, Permit, QualityData, Site, SiteGap } from '../types';
+import type { Clearance, EccUltraData, EccUltraRecord, Facility, HwRegistration, LayerManifest, LegalData, Meta, PageId, PCOAnalysis, PCORecord, Permit, QualityData, Site, SiteGap, SwmDataset } from '../types';
 import type { Session } from '../lib/auth';
 import { dataUrl } from '../lib/api';
 
@@ -47,6 +47,7 @@ interface DashboardState {
   eccUltralist: EccUltraData | null;
   eccUltralistLoading: boolean;
   eccUltralistError: string | null;
+  swm: SwmDataset | null;
   clearancesLoading: boolean;
   clearancesError: string | null;
   loading: boolean;
@@ -125,6 +126,7 @@ export const useDashboard = create<DashboardState>((set, get) => ({
   eccUltralist: null,
   eccUltralistLoading: false,
   eccUltralistError: null,
+  swm: null,
   clearancesLoading: false,
   clearancesError: null,
   loading: false,
@@ -165,6 +167,10 @@ export const useDashboard = create<DashboardState>((set, get) => ({
       } catch {
         // PCO data is optional; ignore errors
       }
+      // Solid waste (MRF) register is optional so a missing build cannot block
+      // the rest of the dashboard.
+      const swm = await fetchOptionalJson<SwmDataset | null>('swm.json', null);
+      set({ swm });
     } catch (error) {
       set({
         loading: false,
@@ -389,4 +395,8 @@ export function useFilteredFacilities(): Facility[] {
   const data = useDashboard((state) => state.data);
   const filters = useDashboard((state) => state.filters);
   return useMemo(() => (data ? filterFacilities(data.facilities, filters) : []), [data, filters]);
+}
+
+export function useSwm(): SwmDataset | null {
+  return useDashboard((state) => state.swm);
 }

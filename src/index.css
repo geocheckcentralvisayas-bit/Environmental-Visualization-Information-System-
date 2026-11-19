@@ -294,6 +294,47 @@ body {
 }
 .cluster-bubble span { line-height: 1; }
 
+/* SWM (MRF) popup */
+.swm-popup { font-size: 11px; line-height: 1.5; }
+.swm-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+.swm-popup-head strong { font-size: 12px; }
+.swm-popup-dot { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; }
+.swm-popup-province {
+  margin-left: auto;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+.swm-popup-row { display: flex; gap: 8px; padding: 1px 0; }
+.swm-popup-row b {
+  min-width: 74px;
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+.swm-popup-row span { color: #cbd5e1; }
+.swm-popup-row span.mono { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.swm-popup-note {
+  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+  padding: 4px 6px;
+  font-size: 10px;
+  color: #fcd34d;
+}
+
 /* Highlight ring for a record opened from a register table */
 .focus-ring {
   animation: focus-pulse 1.7s ease-out infinite;

@@ -634,7 +634,8 @@ export type PageId =
   | 'ecc-ultralist'
   | 'admin'
   | 'legal'
-  | 'pco-corner';
+  | 'pco-corner'
+  | 'swm';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';
 
@@ -765,4 +766,277 @@ export interface FocusTarget {
   lon: number | null | undefined;
   label: string;
   siteId?: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Solid Waste Management (MRF register)                               */
+/* ------------------------------------------------------------------ */
+
+export type SwmStatus = 'Operational' | 'Non-Operational';
+export type SwmCoordStatus = 'ok' | 'missing' | 'invalid';
+
+export interface SwmRecord {
+  id: string;
+  province: string;
+  lgu: string;
+  lguKey: string;
+  barangay: string;
+  status: SwmStatus;
+  txn: string;
+  lat: number | null;
+  lon: number | null;
+  coordStatus: SwmCoordStatus;
+  coordNote: string | null;
+  facilityKey: string;
+}
+
+export interface SwmFacility {
+  key: string;
+  province: string;
+  lgu: string;
+  lguKey: string;
+  status: SwmStatus;
+  lat: number | null;
+  lon: number | null;
+  coordStatus: SwmCoordStatus;
+  coordNote: string | null;
+  barangays: string[];
+  recordCount: number;
+}
+
+export interface SwmLgu {
+  province: string;
+  name: string;
+  key: string;
+  records: number;
+  operational: number;
+  nonOperational: number;
+  facilities: number;
+  coverage: 'operational' | 'non-operational' | 'none';
+  inUniverse: boolean;
+}
+
+export interface SwmProvinceSummary {
+  name: string;
+  lgusTotal: number;
+  lgusWithRecords: number;
+  lgusWithOperational: number;
+  lgusZeroOperational: number;
+  records: number;
+  operational: number;
+  nonOperational: number;
+  facilities: number;
+}
+
+export interface SwmSummary {
+  records: number;
+  facilities: number;
+  operational: number;
+  nonOperational: number;
+  operationalRate: number;
+  multiBarangayFacilities: number;
+  lgusTotal: number;
+  lgusWithRecords: number;
+  lgusWithOperational: number;
+  lgusZeroOperational: number;
+  lgusWithoutRecords: number;
+  missingCoordinates: number;
+  sharedCoordinateFacilities: number;
+}
+
+export interface SwmDataset {
+  generatedAt: string;
+  source: {
+    file: string;
+    workbook: string;
+    system: string;
+    scope: string;
+    rowsParsed: number;
+    recordsKept: number;
+    pivotRowsRemoved: number;
+    excludedByProvince: Record<string, number>;
+    note: string;
+  };
+  summary: SwmSummary;
+  provinces: SwmProvinceSummary[];
+  lgus: SwmLgu[];
+  facilities: SwmFacility[];
+  records: SwmRecord[];
+  unmatched: string[];
+  disposal: SwmDisposal;
+  workbook: SwmWorkbook;
+}
+
+/* ------------------------------------------------------------------ */
+/* SWM Overall Database workbook (WACS, compliance, contacts, lookups)  */
+/* ------------------------------------------------------------------ */
+
+export type SwmComplianceFlag = 'compliant' | 'non-compliant' | 'na';
+
+export interface SwmWacsRecord {
+  province: string;
+  lgu: string;
+  lguKey: string;
+  bioKgDay: number | null;
+  recyclableKgDay: number | null;
+  diversionKgDay: number | null;
+  residualKgDay: number | null;
+  specialKgDay: number | null;
+  totalKgDay: number | null;
+  population2015: number | null;
+  growthRate: number | null;
+  pcgKgDay: number | null;
+  wacsYear: number | null;
+  projected2025KgDay: number | null;
+  projectedBioKgDay: number | null;
+  projectedRecyclableKgDay: number | null;
+  projectedResidualKgDay: number | null;
+  projectedSpecialKgDay: number | null;
+  disposalFacility: string;
+}
+
+export interface SwmWacsSummary {
+  lgus: number;
+  totalKgDay: number;
+  projected2025KgDay: number;
+  population2015: number;
+  avgPcgKgDay: number;
+  composition: { bio: number; recyclable: number; residual: number; special: number };
+  byProvince: Array<{ name: string; lgus: number; totalKgDay: number; projected2025KgDay: number; population2015: number }>;
+  byYear: Array<{ year: number | string; lgus: number; totalKgDay: number }>;
+  byDisposal: Array<{ name: string; lgus: number; totalKgDay: number }>;
+}
+
+export interface SwmContact {
+  province: string;
+  lgu: string;
+  lguKey: string;
+  type: string;
+  district: string;
+  mayor: string;
+  mayorContact: string;
+  mayorEmail: string;
+  mayorParty: string;
+  viceMayor: string;
+  viceMayorContact: string;
+  viceMayorEmail: string;
+  focal: string;
+  focalPosition: string;
+  focalContact: string;
+  focalEmail: string;
+  incomeClass: string;
+  barangays: number | null;
+  address: string;
+  zip: string;
+}
+
+export interface SwmComplianceCriterion {
+  key: string;
+  label: string;
+  status: SwmComplianceFlag;
+}
+
+export interface SwmComplianceRecord {
+  id: string;
+  province: string;
+  lgu: string;
+  lguKey: string;
+  district: string;
+  type: string;
+  hall: string;
+  location: string;
+  zip: string;
+  dumpsiteStatus: string;
+  scrpStatus: string;
+  disposalFacility: string;
+  disposalAddress: string;
+  planStatus: string;
+  overall: string;
+  criteria: SwmComplianceCriterion[];
+  fundedMrfStatus?: string;
+  fundedMrfLocation?: string;
+  equipment?: string;
+  equipmentStatus?: string;
+  planStart?: number | null;
+  planEnd?: number | null;
+  equipment2020?: string;
+  equipment2021?: string;
+  equipment2022?: string;
+  overallStatus?: string;
+}
+
+export interface SwmComplianceSummary {
+  lgus: number;
+  byStatus: Record<string, number>;
+  byProvince: Array<{ name: string; lgus: number }>;
+  compliant: number;
+  nonCompliant: number;
+  criteria: Array<{ key: string; label: string; compliant: number; 'non-compliant': number; na: number }>;
+}
+
+export interface SwmComplianceSet {
+  available: boolean;
+  records: SwmComplianceRecord[];
+  summary: SwmComplianceSummary | null;
+}
+
+export interface SwmReferenceList {
+  key: string;
+  label: string;
+  values: string[];
+}
+
+export interface SwmWorkbook {
+  available: boolean;
+  note: string;
+  wacs: { available: boolean; records: SwmWacsRecord[]; summary: SwmWacsSummary | null };
+  compliance: { current: SwmComplianceSet; old: SwmComplianceSet };
+  contacts: {
+    available: boolean;
+    records: SwmContact[];
+    summary: {
+      lgus: number;
+      byProvince: Array<{ name: string; lgus: number }>;
+      withMayor: number;
+      withViceMayor: number;
+      withFocal: number;
+    } | null;
+  };
+  database: { available: boolean; lists: SwmReferenceList[] };
+}
+
+export type SwmDisposalCategory = 'landfill' | 'dumpsite' | 'transfer';
+
+export interface SwmDisposalProject {
+  id: string;
+  category: SwmDisposalCategory;
+  name: string;
+  proponent: string;
+  lgu: string;
+  province: string;
+  barangay: string;
+  kind: string;
+  ref: string;
+  status: string;
+  year: number | null;
+  lat: number | null;
+  lon: number | null;
+  mapped: boolean;
+}
+
+export interface SwmDisposalCategorySummary {
+  key: SwmDisposalCategory;
+  label: string;
+  tone: string;
+  count: number;
+  mapped: number;
+}
+
+export interface SwmDisposal {
+  available: boolean;
+  source: string;
+  coverage: Record<string, 'covered' | 'no-data'>;
+  categories: SwmDisposalCategorySummary[];
+  projects: SwmDisposalProject[];
+  note: string;
 }

@@ -84,7 +84,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
-    watch: { ignored: ['**/data/raw/**', '**/dist/**'] },
+    watch: { ignored: ['**/data/raw/**', '**/data/*.csv', '**/data/*.xlsx', '**/dist/**'] },
     // Local development: the authenticated API runs as a Cloudflare Worker on
     // :8787 (`npm run api:dev`). Production builds use VITE_API_BASE instead.
     proxy: {
