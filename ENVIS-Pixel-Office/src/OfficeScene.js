@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import employees from '../data/employees.json';
 import bots from '../data/bots.json';
+import characterFiles from '../data/characters.json';
 
 // Hotspots are aligned to the EMB office floor plan artwork (1440 × 1080).
 const HOTSPOTS = [
@@ -18,36 +19,48 @@ const HOTSPOTS = [
 ];
 
 const botMap = new Map(bots.map((bot) => [bot.id, bot]));
+const TALK_LINES = [
+  'Any updates on the data?',
+  'The dashboard looks good today.',
+  'Let me check that register.',
+  'I will encode it shortly.',
+  'Can you review this with me?',
+  'Meeting at the lobby in a bit.'
+];
 
 export class OfficeScene extends Phaser.Scene {
   constructor() {
     super('OfficeScene');
     this.workers = [];
     this.nightOverlay = null;
+    this.stepTimer = 0;
   }
 
   preload() {
     this.load.image('office-map', './assets/office-map-emb.png');
+    for (const [id, file] of Object.entries(characterFiles)) {
+      if (file) this.load.image(`char-${id}`, `./characters/${encodeURIComponent(file)}`);
+    }
   }
 
   create() {
     this.add.image(720, 540, 'office-map').setDisplaySize(1440, 1080).setDepth(0);
-    this.createWorkerTextures();
+    this.createFallbackTexture();
     this.createHotspots();
     this.createWorkers();
     this.createAmbience();
 
-    const hint = this.add.text(720, 1060, 'CLICK A WALKING WORKER TO CHAT · CLICK A ROOM FOR DETAILS', {
+    const hint = this.add.text(720, 1060, 'WORKERS WALK, WORK AND TALK · CLICK ONE TO OPEN ITS BOT CHAT', {
       fontFamily: 'monospace',
-      fontSize: '13px',
+      fontSize: '12px',
       color: '#f2fbff',
       backgroundColor: '#102b3ee8',
       padding: { x: 12, y: 7 },
-      letterSpacing: 1.2
-    }).setOrigin(0.5, 1).setDepth(9).setAlpha(0.9);
+      letterSpacing: 1.1
+    }).setOrigin(0.5, 1).setDepth(20).setAlpha(0.9);
     this.tweens.add({ targets: hint, alpha: 0.55, duration: 1500, yoyo: true, repeat: -1 });
 
-    this.nightOverlay = this.add.rectangle(720, 540, 1440, 1080, 0x061826, 0).setDepth(8);
+    this.nightOverlay = this.add.rectangle(720, 540, 1440, 1080, 0x061826, 0).setDepth(18);
     window.addEventListener('envis:pixel-night', this.toggleNight);
     this.events.once('shutdown', () => window.removeEventListener('envis:pixel-night', this.toggleNight));
   }
@@ -59,42 +72,22 @@ export class OfficeScene extends Phaser.Scene {
     }
   };
 
-  createWorkerTextures() {
-    for (const employee of employees) {
-      const bot = botMap.get(employee.id);
-      const color = parseInt((bot?.color ?? '#34d399').replace('#', ''), 16);
-      for (let frame = 0; frame < 2; frame += 1) {
-        const graphics = this.make.graphics({ x: 0, y: 0, add: false });
-        graphics.fillStyle(0x071820, 1);
-        graphics.fillRect(2, 1, 12, 21);
-        graphics.fillStyle(color, 1);
-        graphics.fillRect(3, 3, 10, 12);
-        graphics.fillStyle(0xf1c9a5, 1);
-        graphics.fillRect(5, 3, 6, 6);
-        graphics.fillStyle(0x071820, 1);
-        graphics.fillRect(6, 5, 1, 1);
-        graphics.fillRect(9, 5, 1, 1);
-        graphics.fillStyle(0x0b3d3a, 1);
-        if (frame === 0) {
-          graphics.fillRect(5, 15, 2, 6);
-          graphics.fillRect(9, 15, 2, 6);
-        } else {
-          graphics.fillRect(4, 15, 2, 6);
-          graphics.fillRect(10, 15, 2, 6);
-        }
-        graphics.generateTexture(`worker-${employee.id}-${frame}`, 16, 22);
-        graphics.destroy();
-      }
-      this.anims.create({
-        key: `walk-${employee.id}`,
-        frames: [
-          { key: `worker-${employee.id}-0` },
-          { key: `worker-${employee.id}-1` },
-        ],
-        frameRate: 6 + Math.floor(Math.random() * 3),
-        repeat: -1,
-      });
-    }
+  createFallbackTexture() {
+    // Christine has no supplied portrait; generate a matching pixel stand-in.
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+    graphics.fillStyle(0x071820, 1);
+    graphics.fillRect(2, 1, 12, 21);
+    graphics.fillStyle(0xf472b6, 1);
+    graphics.fillRect(3, 3, 10, 12);
+    graphics.fillStyle(0xf1c9a5, 1);
+    graphics.fillRect(5, 3, 6, 6);
+    graphics.fillStyle(0x071820, 1);
+    graphics.fillRect(6, 5, 1, 1);
+    graphics.fillRect(9, 5, 1, 1);
+    graphics.fillRect(5, 15, 2, 6);
+    graphics.fillRect(9, 15, 2, 6);
+    graphics.generateTexture('char-fallback', 16, 22);
+    graphics.destroy();
   }
 
   createHotspots() {
@@ -106,9 +99,7 @@ export class OfficeScene extends Phaser.Scene {
         spot.h,
         0x0b9b92,
         0.001
-      )
-        .setDepth(2)
-        .setInteractive({ useHandCursor: true });
+      ).setDepth(2).setInteractive({ useHandCursor: true });
 
       const label = this.add.text(spot.x + spot.w / 2, spot.y + 8, spot.label, {
         fontFamily: 'monospace',
@@ -151,22 +142,50 @@ export class OfficeScene extends Phaser.Scene {
     employees.forEach((employee, index) => {
       const bot = botMap.get(employee.id);
       const spot = HOTSPOTS.find((item) => item.id === employee.room) ?? HOTSPOTS[5];
-      const startX = spot.x + 40 + ((index * 71) % Math.max(80, spot.w - 80));
-      const startY = spot.y + 90 + ((index * 53) % Math.max(80, spot.h - 120));
+      const hasPortrait = Boolean(characterFiles[employee.id]);
+      const textureKey = hasPortrait ? `char-${employee.id}` : 'char-fallback';
+      const startX = spot.x + 50 + ((index * 73) % Math.max(60, spot.w - 100));
+      const startY = spot.y + 120 + ((index * 47) % Math.max(40, spot.h - 170));
 
-      const sprite = this.add.sprite(0, 0, `worker-${employee.id}-0`).setScale(2).setDepth(6);
-      sprite.play(`walk-${employee.id}`);
-      const nameTag = this.add.text(0, -30, bot?.short ?? employee.name.split(' ')[0], {
+      const shadow = this.add.ellipse(0, 2, hasPortrait ? 42 : 30, 11, 0x031417, 0.42).setDepth(5);
+      const sprite = this.add.sprite(0, 0, textureKey).setDepth(7);
+      if (hasPortrait) sprite.setDisplaySize(78, 78);
+      else sprite.setScale(3.8);
+      sprite.setOrigin(0.5, 1);
+      sprite.y = 0;
+
+      const nameTag = this.add.text(0, -88, bot?.short ?? employee.name.split(' ')[0], {
         fontFamily: 'monospace',
-        fontSize: '9px',
+        fontSize: '11px',
         color: '#eafff9',
         backgroundColor: '#071820dd',
         padding: { x: 4, y: 2 }
-      }).setOrigin(0.5, 1).setDepth(7);
+      }).setOrigin(0.5, 1).setDepth(9);
 
-      const worker = this.add.container(startX, startY, [sprite, nameTag]).setDepth(6);
-      worker.setData('lastX', startX);
-      worker.setData('employee', employee);
+      const status = this.add.text(0, -108, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#9ff5d8',
+        backgroundColor: '#0b3d3ae0',
+        padding: { x: 4, y: 2 }
+      }).setOrigin(0.5, 1).setDepth(9);
+
+      const worker = this.add.container(startX, startY, [shadow, sprite, nameTag, status]).setDepth(6);
+      worker.workerData = {
+        employee,
+        bot,
+        spot,
+        sprite,
+        shadow,
+        status,
+        nameTag,
+        state: 'working',
+        moveTween: null,
+        bobTween: null,
+        lastX: startX,
+        hasPortrait,
+      };
+
       sprite.setInteractive({ useHandCursor: true });
       sprite.on('pointerover', () => nameTag.setColor('#ffffff').setScale(1.08));
       sprite.on('pointerout', () => nameTag.setColor('#eafff9').setScale(1));
@@ -176,54 +195,131 @@ export class OfficeScene extends Phaser.Scene {
       });
 
       this.workers.push(worker);
-      this.wander(worker, spot, index);
+      this.setState(worker, 'working', 2200 + index * 380);
     });
   }
 
-  wander(worker, spot, seed) {
-    const marginX = Math.min(60, spot.w / 4);
-    const marginY = Math.min(70, spot.h / 4);
-    const targetX = spot.x + marginX + Math.random() * Math.max(20, spot.w - marginX * 2);
-    const targetY = spot.y + marginY + 50 + Math.random() * Math.max(20, spot.h - marginY * 2 - 60);
-    const duration = 2800 + Math.random() * 4200 + seed * 40;
+  setState(worker, state, duration = 3000) {
+    const data = worker.workerData;
+    if (data.moveTween) { data.moveTween.stop(); data.moveTween = null; }
+    if (data.bobTween) { data.bobTween.stop(); data.bobTween = null; }
+    data.sprite.y = 0;
+    data.status.setText('');
+    data.state = state;
+    data.shadow.setScale(1, 1);
 
-    this.tweens.add({
+    if (state === 'working') {
+      data.status.setText('▮▮▮').setColor('#8fe3c6');
+      data.bobTween = this.tweens.add({
+        targets: data.sprite,
+        y: -2,
+        duration: 170,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.time.delayedCall(duration, () => {
+        if (worker.active && data.state === 'working') this.setState(worker, 'walking');
+      });
+      return;
+    }
+
+    if (state === 'talking') {
+      data.status.setText('•••').setColor('#fbbf24');
+      const line = TALK_LINES[Phaser.Math.Between(0, TALK_LINES.length - 1)];
+      this.showBubble(worker, line);
+      data.bobTween = this.tweens.add({
+        targets: data.sprite,
+        y: -4,
+        angle: -2,
+        duration: 240,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.time.delayedCall(duration, () => {
+        if (worker.active && data.state === 'talking') this.setState(worker, 'walking');
+      });
+      return;
+    }
+
+    // Walking: move to a point inside the assigned room with a real bob/step.
+    const spot = data.spot;
+    const targetX = spot.x + 38 + Math.random() * Math.max(20, spot.w - 76);
+    const targetY = spot.y + 118 + Math.random() * Math.max(20, spot.h - 176);
+    const travel = Phaser.Math.Distance.Between(worker.x, worker.y, targetX, targetY);
+    const speed = 58 + Math.random() * 28;
+    const travelMs = Math.max(1100, (travel / speed) * 1000);
+    data.status.setText('→').setColor('#a7f3d0');
+    data.bobTween = this.tweens.add({
+      targets: data.sprite,
+      y: -8,
+      duration: 140,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.stepTimer = 0;
+
+    data.moveTween = this.tweens.add({
       targets: worker,
       x: targetX,
       y: targetY,
-      delay: seed * 120,
-      duration,
-      ease: 'Sine.easeInOut',
+      duration: travelMs,
+      ease: 'Linear',
       onUpdate: () => {
-        const last = worker.getData('lastX') ?? worker.x;
-        if (Math.abs(worker.x - last) > 0.6) {
-          const sprite = worker.list[0];
-          if (sprite) sprite.setFlipX(worker.x < last);
-          worker.setData('lastX', worker.x);
+        const delta = worker.x - data.lastX;
+        if (Math.abs(delta) > 0.4) {
+          data.sprite.setFlipX(delta < 0);
+          data.lastX = worker.x;
+        }
+        data.shadow.setScale(1 - Math.abs(data.sprite.y) / 40, 1 - Math.abs(data.sprite.y) / 60);
+        this.stepTimer += 16;
+        if (this.stepTimer > 260) {
+          this.stepTimer = 0;
+          this.footstep(worker.x, worker.y + 2);
         }
       },
-      onComplete: () => this.wander(worker, spot, seed),
+      onComplete: () => {
+        if (!worker.active) return;
+        const roll = Math.random();
+        if (roll < 0.34) this.setState(worker, 'talking', 2600 + Math.random() * 2600);
+        else this.setState(worker, 'working', 2800 + Math.random() * 4200);
+      },
+    });
+  }
+
+  footstep(x, y) {
+    const dust = this.add.circle(x, y, 2, 0xb8f0d8, 0.45).setDepth(6);
+    this.tweens.add({
+      targets: dust,
+      y: y - 9,
+      alpha: 0,
+      duration: 420,
+      ease: 'Sine.easeOut',
+      onComplete: () => dust.destroy(),
     });
   }
 
   showBubble(worker, text) {
-    const bubble = this.add.text(0, -58, text, {
+    const bubble = this.add.text(0, -128, text, {
       fontFamily: 'monospace',
       fontSize: '11px',
       color: '#eafff9',
       backgroundColor: '#0b3d3aef',
-      padding: { x: 8, y: 6 },
-      wordWrap: { width: 236 }
-    }).setOrigin(0.5, 1).setDepth(12).setAlpha(0);
+      padding: { x: 7, y: 5 },
+      wordWrap: { width: 252 }
+    }).setOrigin(0.5, 1).setDepth(15).setAlpha(0);
     worker.add(bubble);
-    this.tweens.add({ targets: bubble, alpha: 1, duration: 180 });
-    this.time.delayedCall(3600, () => {
-      this.tweens.add({ targets: bubble, alpha: 0, duration: 400, onComplete: () => bubble.destroy() });
+    this.tweens.add({ targets: bubble, alpha: 1, duration: 160 });
+    this.time.delayedCall(3200, () => {
+      if (bubble.active) {
+        this.tweens.add({ targets: bubble, alpha: 0, duration: 360, onComplete: () => bubble.destroy() });
+      }
     });
   }
 
   createAmbience() {
-    // Small "data packets" drift through the lobby and staff lounge.
     for (let i = 0; i < 8; i += 1) {
       const dot = this.add.rectangle(470 + i * 54, 470, 5, 5, 0x6ff2d0, 0.7).setDepth(5);
       this.tweens.add({

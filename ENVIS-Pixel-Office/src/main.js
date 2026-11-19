@@ -2,12 +2,21 @@ import Phaser from 'phaser';
 import employees from '../data/employees.json';
 import rooms from '../data/rooms.json';
 import bots from '../data/bots.json';
+import characterFiles from '../data/characters.json';
 import { OfficeScene } from './OfficeScene.js';
 import './style.css';
 
 const roomMap = new Map(rooms.map((room) => [room.id, room]));
 const employeeMap = new Map(employees.map((employee) => [employee.id, employee]));
 const botMap = new Map(bots.map((bot) => [bot.id, bot]));
+
+function portraitMarkup(id, fallback, className = '') {
+  const file = characterFiles[id];
+  if (file) {
+    return `<img class="${className}" src="./characters/${encodeURIComponent(file)}" alt="" />`;
+  }
+  return escapeHtml(fallback);
+}
 const panel = document.querySelector('#info-panel');
 const panelContent = document.querySelector('#panel-content');
 const botPanel = document.querySelector('#bot-panel');
@@ -213,7 +222,8 @@ function openBot(id) {
   activeBot = bot;
   document.querySelector('#bot-name').textContent = bot.name;
   const avatar = document.querySelector('#bot-avatar');
-  avatar.textContent = bot.avatar;
+  avatar.innerHTML = portraitMarkup(id, bot.avatar);
+  avatar.classList.toggle('portrait', Boolean(characterFiles[id]));
   avatar.style.borderColor = bot.color;
   avatar.style.color = bot.color;
   botMessages.innerHTML = '';
@@ -235,7 +245,7 @@ function renderBotDirectory() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'bot-directory-item';
-    button.innerHTML = `<span style="background:${escapeHtml(bot.color)}">${escapeHtml(bot.avatar)}</span><strong>${escapeHtml(bot.name)}</strong><small>${escapeHtml(bot.short)}</small>`;
+    button.innerHTML = `<span class="${characterFiles[bot.id] ? 'portrait' : ''}" style="background:${escapeHtml(bot.color)}">${portraitMarkup(bot.id, bot.avatar)}</span><strong>${escapeHtml(bot.name)}</strong><small>${escapeHtml(bot.short)}</small>`;
     button.addEventListener('click', () => openBot(bot.id));
     list.appendChild(button);
   }
