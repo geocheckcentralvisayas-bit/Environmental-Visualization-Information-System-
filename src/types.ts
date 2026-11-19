@@ -93,8 +93,6 @@ export interface HwRegistration {
   caseHandler: string;
   pcoAccreditation: string;
   pcoAccreditationDate: string | null;
-  email: string;
-  phone: string;
   employees: string;
   industry: string;
   psic: string;
@@ -659,8 +657,6 @@ export interface PCORecord {
   address: string;
   natureOfBusiness: string;
   category: string;
-  telephoneNo: string | number | null;
-  managingHead: string;
   dateCreated: string | null;
   dateApproved: string | null;
   remarks?: string;

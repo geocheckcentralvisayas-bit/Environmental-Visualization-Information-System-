@@ -25,11 +25,6 @@ function excelSerialToDate(serial) {
   return date.toISOString().split('T')[0];
 }
 
-function normalizePhone(phone) {
-  if (phone === null || phone === undefined || phone === 'N/A' || phone === '') return null;
-  return String(phone).trim();
-}
-
 function parsePCOExcel() {
   console.log(`Reading ${INPUT_FILE}...`);
   const wb = XLSX.readFile(INPUT_FILE);
@@ -62,8 +57,6 @@ function parsePCOExcel() {
       address: String(r.ADDRESS || '').trim(),
       natureOfBusiness: String(r['NATURE OF BUSINESS'] || '').trim(),
       category: String(r.CATEGORY || '').trim(),
-      telephoneNo: normalizePhone(r['TELEPHONE NO']),
-      managingHead: String(r['MANAGING HEAD'] || '').trim(),
       dateCreated: excelSerialToDate(r['DATE CREATED']),
       dateApproved: excelSerialToDate(r['DATE APPROVED']),
       remarks: String(r.REMARKS || '').trim() || undefined,

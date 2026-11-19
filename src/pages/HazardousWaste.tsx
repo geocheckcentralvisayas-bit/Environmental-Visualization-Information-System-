@@ -209,8 +209,6 @@ export function HazardousWastePage() {
         case_handler: registration.caseHandler,
         pco: registration.pco,
         pco_accreditation: registration.pcoAccreditation,
-        email: registration.email,
-        phone: registration.phone,
         employees: registration.employees,
         industry: registration.industry,
         psic: registration.psic,
@@ -360,7 +358,7 @@ export function HazardousWastePage() {
         />
       </Panel>
 
-      <Panel bodyClassName="p-3" title="PCO contact directory - hazardous waste only" subtitle={`${formatNumber(hw.length)} contacts matching current filters`}>
+      <Panel bodyClassName="p-3" title="PCO accreditation directory - hazardous waste only" subtitle={`${formatNumber(hw.length)} registrations matching current filters`}>
         <DataTable
           rows={hw}
           columns={[
@@ -371,8 +369,6 @@ export function HazardousWastePage() {
             { key: 'pco', header: 'PCO name', sortValue: (row) => row.pco, render: (row) => <span className="text-[10.5px] text-slate-400">{row.pco || '—'}</span> },
             { key: 'accred', header: 'PCO accreditation no.', render: (row) => <span className="font-mono text-[9.5px] text-slate-500">{row.pcoAccreditation || '—'}</span> },
             { key: 'date', header: 'Accreditation date', sortValue: (row) => row.pcoAccreditationDate ?? '', render: (row) => <span className="whitespace-nowrap text-[10.5px] text-slate-400">{formatDate(row.pcoAccreditationDate)}</span> },
-            { key: 'email', header: 'Email', render: (row) => <span className="block max-w-[180px] truncate text-[10px] text-slate-500">{row.email || '—'}</span> },
-            { key: 'tel', header: 'Tel # / CP #', render: (row) => <span className="font-mono text-[9.5px] text-slate-500">{row.phone || '—'}</span> },
           ]}
           rowKey={(row) => row.id}
           pageSize={25}

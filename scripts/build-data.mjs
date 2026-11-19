@@ -649,8 +649,6 @@ async function extractHazardousWaste() {
       pco: cleanText(first['PCO Name']),
       pcoAccreditation: cleanText(first['PCO Accreditation No.']),
       pcoAccreditationDate: parseDate(first['Date of Accreditation']),
-      email: cleanText(first['Email Address']),
-      phone: cleanText(first['Tel# / CP#']),
       employees: cleanText(first['No. of Employees']),
       industry,
       psic: cleanText(first['PSIC Number']),
