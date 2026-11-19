@@ -19,6 +19,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.pages.outputs.enabled }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,12 +48,33 @@ jobs:
             echo "- Build: \`${GITHUB_RUN_NUMBER}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Only repositories with GitHub Pages enabled can deploy. This lets the
+      # source mirror build and validate every push without failing on deploy.
+      - name: Check Pages availability
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
+          if [ "$code" = "200" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is enabled for ${GITHUB_REPOSITORY}."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is not enabled for ${GITHUB_REPOSITORY} (HTTP ${code}); skipping deploy."
+          fi
+
       - name: Upload Pages artifact
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    if: needs.build.outputs.pages == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
