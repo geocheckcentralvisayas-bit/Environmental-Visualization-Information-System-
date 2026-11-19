@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { DatasetSchema, PCOAnalysisSchema, PCORecordSchema } from './schemas.ts';
@@ -40,6 +40,27 @@ async function validateFile(file: string, schema: any) {
   }
 }
 
+/**
+ * The Worker only serves data paths in ROOT_DATA_FILES. A new root-level JSON
+ * that is missing from that allow-list returns HTTP 404 to the browser, so
+ * catch the mistake at build time instead of at runtime.
+ */
+async function validateWorkerAllowList() {
+  const source = await readFile('worker/src/index.ts', 'utf8');
+  const block = source.match(/const ROOT_DATA_FILES = new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? '';
+  const allowed = new Set([...block.matchAll(/'([^']+)'/g)].map((match) => match[1]));
+  const entries = await readdir(OUT_DIR, { withFileTypes: true });
+  const missing = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json') && !allowed.has(entry.name))
+    .map((entry) => entry.name);
+  if (missing.length) {
+    console.error(`\nWorker allow-list is missing: ${missing.join(', ')}`);
+    return false;
+  }
+  console.log('Worker allow-list covers all root JSON files');
+  return true;
+}
+
 async function main() {
   console.log('Validating output JSON files...\n');
 
@@ -62,7 +83,7 @@ async function main() {
     'pco-analysis.json': PCOAnalysisSchema,
   };
 
-  let allValid = true;
+  let allValid = await validateWorkerAllowList();
   for (const file of FILES) {
     const schema = schemas[file];
     if (!schema) {

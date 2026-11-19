@@ -38,6 +38,8 @@ function validPasswordHash(value: unknown): value is string {
   return iterations >= 1_000 && iterations <= 1_000_000;
 }
 
+// Every root-level JSON published in public/data must be listed here. The API
+// returns 404 for anything else, so a missing entry makes that tab fail to load.
 const ROOT_DATA_FILES = new Set([
   'meta.json',
   'quality.json',
@@ -49,6 +51,7 @@ const ROOT_DATA_FILES = new Set([
   'legal.json',
   'pco-database.json',
   'pco-analysis.json',
+  'ecc-ultralist.json',
   'swm.json',
   'geojson/layers.json',
 ]);
