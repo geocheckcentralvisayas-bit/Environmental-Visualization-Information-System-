@@ -33,3 +33,10 @@ reports/
 # Tooling artifacts
 .specstory/
 assets/
+
+# Pixel Office artwork must stay tracked (the generic assets/ rule above
+# would otherwise strip the floor-map image from a fresh clone).
+!ENVIS-Pixel-Office/public/assets/
+!ENVIS-Pixel-Office/public/assets/**
+!public/pixel-office/assets/
+!public/pixel-office/assets/**

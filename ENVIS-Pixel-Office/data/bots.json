@@ -1,0 +1,153 @@
+[
+  {
+    "id": "kent-agbayani",
+    "name": "Kent Agbayani",
+    "short": "Kent",
+    "avatar": "KA",
+    "color": "#34d399",
+    "greeting": "Hey! I'm Kent — I build and maintain ENVIS. Ask me about the dashboard, GIS, or this pixel office.",
+    "prompts": ["What do you build?", "Where is your office?", "How does ENVIS work?"],
+    "rules": [
+      { "match": ["build", "develop", "code", "env", "dashboard", "system"], "reply": "I design and maintain the ENVIS platform: data pipelines, authenticated API, the maps and the dashboards you see in the other tabs." },
+      { "match": ["gis", "map", "spatial", "coordinate"], "reply": "GIS is my main tool. I normalise coordinates, build spatial layers and make sure every facility lands on the right spot in the map." },
+      { "match": ["office", "where", "room", "location"], "reply": "You'll find me in the GIS / Development / IT office — top row, second door from the left." },
+      { "match": ["pixel", "office", "bot", "animation"], "reply": "This little office is a Phaser scene. Each walking sprite is one of us, and this chat is a scripted persona built from our real roles." }
+    ],
+    "fallback": "I can talk about ENVIS, GIS, maps, or where the team sits. Try one of the suggested questions."
+  },
+  {
+    "id": "edward-ang",
+    "name": "Atty. Edward T. Ang",
+    "short": "Director Ang",
+    "avatar": "EA",
+    "color": "#f0d49e",
+    "greeting": "Good day. I am the Regional Director. Official institutional decisions and approvals rest with this office.",
+    "prompts": ["What is your role?", "Who approves official matters?", "Where is your office?"],
+    "rules": [
+      { "match": ["role", "position", "do you do", "authority", "approve", "decision"], "reply": "As Regional Director I hold final institutional authority for EMB Region VII decisions, directions and approvals." },
+      { "match": ["platform", "envis", "kent", "admin"], "reply": "Kent administers and maintains the ENVIS platform. Platform administration is technical — it does not replace institutional approval authority." },
+      { "match": ["office", "where", "room", "location"], "reply": "My office is the Office of the Regional Director — the first room on the top row." }
+    ],
+    "fallback": "I can clarify institutional authority, the Regional Director's role, or where the executive office is located."
+  },
+  {
+    "id": "stepen-lee",
+    "name": "Stepen Roie Lee",
+    "short": "Stepen",
+    "avatar": "SL",
+    "color": "#a78bfa",
+    "greeting": "Hi, I'm Stepen. I lead MIS, Planning and PISMU — the information and coordination side of the office.",
+    "prompts": ["What does MIS do?", "What is PISMU?", "Where is your office?"],
+    "rules": [
+      { "match": ["mis", "information", "system", "data"], "reply": "MIS manages the management information systems that keep regional reporting and dashboards running." },
+      { "match": ["plan", "pismu", "coordination"], "reply": "Planning and PISMU coordinate programmes, reporting and information across the region." },
+      { "match": ["office", "where", "room", "location"], "reply": "I'm in the MIS / Planning / PISMU office — top row, third door." }
+    ],
+    "fallback": "Ask me about MIS, planning, PISMU, or my office location."
+  },
+  {
+    "id": "jumar-doublas",
+    "name": "Jumar Doublas",
+    "short": "Jumar",
+    "avatar": "JD",
+    "color": "#38bdf8",
+    "greeting": "Hi! I handle web checking and lead IT tasks, and I'm an Environmental Specialist II.",
+    "prompts": ["What is web checking?", "What do you do in IT?", "Where is your office?"],
+    "rules": [
+      { "match": ["web", "check", "quality", "review"], "reply": "Web checking means reviewing published pages and dashboards for accuracy, broken links and data-quality issues before people rely on them." },
+      { "match": ["it", "computer", "technical", "support"], "reply": "I support lead IT work — keeping the tools, access and day-to-day technical operations running." },
+      { "match": ["office", "where", "room", "location"], "reply": "I share the GIS / Development / IT office with Kent — top row, second door." }
+    ],
+    "fallback": "I can explain web checking, IT support, or point you to our office."
+  },
+  {
+    "id": "akira-fajardo",
+    "name": "Akira Lyod Fajardo",
+    "short": "Akira",
+    "avatar": "AF",
+    "color": "#fbbf24",
+    "greeting": "Hello! I encode ECC and CNC records and support GIS work for clearances.",
+    "prompts": ["What are ECC and CNC?", "What do you encode?", "Where is your office?"],
+    "rules": [
+      { "match": ["ecc", "cnc", "clearance"], "reply": "ECC is an Environmental Compliance Certificate and CNC is a Certificate of Non-Coverage. I encode those clearance records and keep their GIS references tidy." },
+      { "match": ["encode", "data", "record"], "reply": "I maintain the clearance register so the ECC & CNC tab has reliable project, proponent and status information." },
+      { "match": ["office", "where", "room", "location"], "reply": "My desk is in the ECC & CNC Data Office — second row, first door." }
+    ],
+    "fallback": "Ask me about ECC and CNC encoding, clearance records, or where I sit."
+  },
+  {
+    "id": "alfred-calumba",
+    "name": "Engr. Alfred Calumba",
+    "short": "Alfred",
+    "avatar": "AC",
+    "color": "#60a5fa",
+    "greeting": "Good day. I manage the air and water permitting records — discharge permits and permits to operate.",
+    "prompts": ["What permits do you manage?", "What is a DP?", "Where is your office?"],
+    "rules": [
+      { "match": ["dp", "discharge", "water"], "reply": "A Discharge Permit (DP) authorises wastewater discharge. I manage those records and their expiry information." },
+      { "match": ["pto", "operate", "permit"], "reply": "A Permit to Operate (PTO) covers facilities and pollution-control equipment. I keep DP and PTO records aligned." },
+      { "match": ["office", "where", "room", "location"], "reply": "I work in Air & Water Permitting — second row, third door." }
+    ],
+    "fallback": "I can explain discharge permits, permits to operate, or where the permitting section sits."
+  },
+  {
+    "id": "jason-tecson",
+    "name": "Jason Tecson",
+    "short": "Jason",
+    "avatar": "JT",
+    "color": "#fb7185",
+    "greeting": "Hi, I'm Jason. I manage hazardous waste registrations and records.",
+    "prompts": ["What is hazardous waste?", "What do you maintain?", "Where is your office?"],
+    "rules": [
+      { "match": ["hazard", "hw", "waste"], "reply": "Hazardous waste registrations track generators, waste streams and compliance. I keep those records organised for the Hazardous Waste tab." },
+      { "match": ["record", "register", "data"], "reply": "I maintain generator registrations, waste codes and the links to permits so the dashboards can show compliance status." },
+      { "match": ["office", "where", "room", "location"], "reply": "My office is Hazardous Waste Records — top row, last door on the right." }
+    ],
+    "fallback": "Ask me about hazardous-waste registrations, records, or my office."
+  },
+  {
+    "id": "christine-gigante",
+    "name": "Christine Alipuyo Gigante",
+    "short": "Christine",
+    "avatar": "CG",
+    "color": "#f472b6",
+    "greeting": "Hello! I encode and maintain Solid Waste Management information for the region.",
+    "prompts": ["What is SWM?", "What do you encode?", "Where is your office?"],
+    "rules": [
+      { "match": ["swm", "solid", "mrf", "waste"], "reply": "SWM covers Materials Recovery Facilities, landfills, dumpsites, WACS and compliance summaries. I keep that register up to date." },
+      { "match": ["encode", "data", "record"], "reply": "I maintain the SWM database that feeds the Solid Waste Management tab — facilities, LGU coverage and annual summaries." },
+      { "match": ["office", "where", "room", "location"], "reply": "I'm in the SWM Data & Encoding office — bottom row, second door from the left." }
+    ],
+    "fallback": "I can talk about SWM records, MRFs, WACS, or where my office is."
+  },
+  {
+    "id": "kurt-baylan",
+    "name": "Kurt Baylan",
+    "short": "Kurt",
+    "avatar": "KB",
+    "color": "#2dd4bf",
+    "greeting": "Hi! I manage AQMS data — the air-quality monitoring readings you see in Ambient Corner.",
+    "prompts": ["What is AQMS?", "Where does the data come from?", "Where is your office?"],
+    "rules": [
+      { "match": ["aqms", "air", "quality", "pm"], "reply": "AQMS is the Air Quality Monitoring System. Ambient Corner shows hourly PM2.5 and PM10 from Talisay and Toledo plus manual AQI samples." },
+      { "match": ["source", "live", "sheet", "data"], "reply": "Readings come from the public AQMS Google Sheet. The Worker refreshes it every minute, and the historical dashboard is rebuilt from the same source." },
+      { "match": ["office", "where", "room", "location"], "reply": "I work in the AQMS Data & Monitoring office — bottom row, first door." }
+    ],
+    "fallback": "Ask me about AQMS, PM2.5/PM10, the live feed, or my office location."
+  },
+  {
+    "id": "ej-dimacali",
+    "name": "EJ Dimacali",
+    "short": "EJ",
+    "avatar": "ED",
+    "color": "#f59e0b",
+    "greeting": "Hi, I'm EJ. I handle server operations and database security for EMB systems.",
+    "prompts": ["What do you secure?", "Who can access the dashboard?", "Where is your office?"],
+    "rules": [
+      { "match": ["server", "security", "database", "access"], "reply": "I look after server infrastructure and database security — accounts, sessions and keeping unpublished data behind the authenticated API." },
+      { "match": ["role", "mis", "rd", "permission", "access"], "reply": "Normal dashboard roles can view their own tabs. Sensitive views like this Pixel Office are restricted to MIS and RD, with a timed session." },
+      { "match": ["office", "where", "room", "location"], "reply": "I'm in the Server & Database Security room — second row, last door on the right." }
+    ],
+    "fallback": "I can explain server security, dashboard access rules, or where the server room is."
+  }
+]

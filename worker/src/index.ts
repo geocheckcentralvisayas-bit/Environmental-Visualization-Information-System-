@@ -215,6 +215,30 @@ async function handleData(request: Request, env: Env, auth: AuthContext, path: s
 }
 
 /* ------------------------------------------------------------------ */
+/* Pixel Office: MIS / RD only, 15-minute session                      */
+/* ------------------------------------------------------------------ */
+const PIXEL_SESSION_MS = 15 * 60_000;
+
+async function handlePixelSession(request: Request, env: Env, auth: AuthContext): Promise<Response> {
+  if (request.method !== 'GET') return fail(405, 'Method not allowed.');
+  if (auth.session.role !== 'mis' && auth.session.role !== 'rd') {
+    return fail(403, 'Only MIS and RD accounts can open the Pixel Office.');
+  }
+  const expiresAt = Date.now() + PIXEL_SESSION_MS;
+  await logActivity(
+    env,
+    'pixel-session-open',
+    `${auth.session.displayName} opened the Pixel Office (15-minute session)`,
+    auth.session.username,
+    auth.session.role,
+  );
+  return json(
+    { allowed: true, role: auth.session.role, expiresAt, serverTime: Date.now() },
+    { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Near-real-time AQMS readings                                        */
 /* ------------------------------------------------------------------ */
 const AQMS_SHEET_ID = '1Fh6w15beHCAHPGJw-2nfwNryez3vwnSVCd8bsFGKvHE';
@@ -625,6 +649,11 @@ export default {
       if (path === '/api/verify' && request.method === 'POST') {
         if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
         return withCors(await handleVerify(request, env, auth), request, env);
+      }
+
+      if (path === '/api/pixel/session') {
+        if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
+        return withCors(await handlePixelSession(request, env, auth), request, env);
       }
 
       if (path === '/api/aqms/live' && request.method === 'GET') {

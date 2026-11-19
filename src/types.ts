@@ -636,7 +636,8 @@ export type PageId =
   | 'legal'
   | 'pco-corner'
   | 'swm'
-  | 'ambient';
+  | 'ambient'
+  | 'pixel-office';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';
 

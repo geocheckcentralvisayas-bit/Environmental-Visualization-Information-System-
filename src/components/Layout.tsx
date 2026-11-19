@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Building2, CalendarClock, ChevronRight, ClipboardCheck, Database, Droplets, FileDown,
   FileCheck2, FlaskConical, Gavel, Info, LayoutDashboard, Layers3, ListChecks, Map as MapIcon, Menu, PanelLeftClose,
-  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind,
+  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind, Bot,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useDashboard, useFilteredPermits, useFilteredSites } from '../store/useDashboard';
@@ -10,12 +10,13 @@ import type { PageId } from '../types';
 import { logout } from '../lib/auth';
 import type { Session } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
-import { APP_VERSION, EMB_R7_URL, VERSION_LABEL } from '../lib/version';
+import { APP_VERSION, BUILD_NUMBER, EMB_R7_URL, VERSION_LABEL } from '../lib/version';
 
 const NAV: { group: string; items: { id: PageId; label: string; icon: typeof LayoutDashboard; badge?: string }[] }[] = [
   { group: 'Monitor', items: [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'ambient', label: 'Ambient Corner', icon: Wind },
+    { id: 'pixel-office', label: 'Pixel Office', icon: Bot },
   ] },
   {
     group: 'Permits',
@@ -89,6 +90,7 @@ const PAGE_META: Record<PageId, { title: string; subtitle: string }> = {
   hw: { title: 'Hazardous waste register', subtitle: 'Hazardous-waste generators, waste streams and compliance status' },
   swm: { title: 'Solid waste management', subtitle: 'MRF status, disposal facilities and LGU coverage across Central Visayas' },
   ambient: { title: 'Ambient corner', subtitle: 'Air quality monitoring — live and historical PM2.5, PM10 and manual AQI' },
+  'pixel-office': { title: 'Pixel office', subtitle: 'Animated EMB workplace — walk the floor, meet the team and chat with their bots' },
   clearances: { title: 'ECC & CNC clearances', subtitle: 'Environmental compliance and non-coverage certificates cross-referenced with DP and PTO' },
   'ecc-ultralist': { title: 'ECC & CNC ultralist', subtitle: 'Approved EIA clearances for Cebu and Bohol intercrossed with DP, PTO and hazardous waste' },
   admin: { title: 'Accounts & activity', subtitle: 'MIS account management and sign-in / export activity log' },
@@ -161,7 +163,12 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
             <div key={section.group} className="mb-2">
               <div className={clsx('px-2 pb-1 text-[8.5px] font-bold uppercase tracking-[0.19em] text-slate-600', collapsed && 'md:hidden')}>{section.group}</div>
               <div className="space-y-0.5">
-                {section.items.filter((item) => !(session?.role === 'rd' && item.id === 'reports') && !(item.id === 'admin' && session?.role !== 'mis')).map((item) => {
+                {section.items.filter((item) => {
+                  if (session?.role === 'rd' && item.id === 'reports') return false;
+                  if (item.id === 'admin' && session?.role !== 'mis') return false;
+                  if (item.id === 'pixel-office' && !['mis', 'rd'].includes(session?.role ?? '')) return false;
+                  return true;
+                }).map((item) => {
                   const Icon = item.icon;
                   const active = page === item.id;
                   return (
@@ -216,7 +223,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               className={clsx('hover:text-slate-400', collapsed && 'md:hidden')}
               title="DENR-EMB Region VII"
             >
-              Build {APP_VERSION} · Authorized
+              Build {APP_VERSION} · {BUILD_NUMBER ? `#${BUILD_NUMBER}` : 'dev'} · Authorized
             </a>
             <a href={EMB_R7_URL} target="_blank" rel="noreferrer" className="hover:text-slate-400" title="DENR-EMB Region VII">
               <ExternalLink size={11} />
@@ -238,7 +245,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               </div>
               <p className="truncate text-[10.5px] text-slate-500">{pageMeta.subtitle}</p>
             </div>
-            {page !== 'swm' && page !== 'ambient' && (
+            {page !== 'swm' && page !== 'ambient' && page !== 'pixel-office' && (
             <div className="relative hidden w-[240px] shrink-0 sm:block lg:w-[300px]">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
@@ -262,7 +269,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
             </div>
           </div>
 
-          <div className={clsx('flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5', (page === 'swm' || page === 'ambient') && 'hidden')}>
+          <div className={clsx('flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5', (page === 'swm' || page === 'ambient' || page === 'pixel-office') && 'hidden')}>
             <span className="mr-1 hidden shrink-0 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600 sm:block">Filters</span>
             <select className="select h-7 w-auto min-w-[92px] text-[10.5px]" value={String(filters.year)} onChange={(event) => setFilters({ year: event.target.value === 'all' ? 'all' : Number(event.target.value) })}>
               <option value="all">All years</option>
@@ -299,7 +306,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               {meta?.totals.screened.toLocaleString()} permits spatially screened
             </div>
           </div>
-          <div className={clsx('px-3 pb-2 sm:hidden', (page === 'swm' || page === 'ambient') && 'hidden')}>
+          <div className={clsx('px-3 pb-2 sm:hidden', (page === 'swm' || page === 'ambient' || page === 'pixel-office') && 'hidden')}>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input className="input h-8 pl-7" placeholder="Search company, permit, LGU…" value={filters.search} onChange={(event) => setFilters({ search: event.target.value })} />

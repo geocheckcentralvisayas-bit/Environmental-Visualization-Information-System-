@@ -1,0 +1,123 @@
+[
+  {
+    "id": "kent-agbayani",
+    "name": "Kent Agbayani",
+    "initials": "KA",
+    "role": "GIS Specialist · Project Manager · Developer & Maintainer",
+    "position": "Platform Owner / Lead Developer",
+    "unit": "K3nt-Bytes",
+    "room": "gis-development",
+    "description": "Leads the design, development, maintenance, and technical administration of the ENVIS platform and its GIS capabilities.",
+    "contact": "Liquidkentagbayani@proton.me",
+    "authority": "Platform ownership and technical administration",
+    "order": 1
+  },
+  {
+    "id": "edward-ang",
+    "name": "Atty. Edward T. Ang",
+    "initials": "EA",
+    "role": "Regional Director",
+    "position": "Office of the Regional Director, DENR-EMB Region VII",
+    "unit": "Office of the Regional Director",
+    "room": "executive-office",
+    "description": "Regional Director and final institutional decision authority for official EMB Region VII decisions, directions, and approvals.",
+    "authority": "Final institutional decision and approval authority",
+    "order": 2
+  },
+  {
+    "id": "stepen-lee",
+    "name": "Stepen Roie Lee",
+    "initials": "SL",
+    "role": "MIS Chief · Planning Chief · Overall PISMU Chief",
+    "position": "Chief, Management Information System / Planning / PISMU",
+    "unit": "Management Information System / Planning / PISMU",
+    "room": "mis-planning",
+    "description": "Leads the MIS, planning, and PISMU functions represented in this office directory.",
+    "authority": "MIS, planning, and PISMU leadership",
+    "order": 3
+  },
+  {
+    "id": "jumar-doublas",
+    "name": "Jumar Doublas",
+    "initials": "JD",
+    "role": "Web Checker · Lead IT",
+    "position": "Environmental Specialist II",
+    "unit": "IT / Web Operations",
+    "room": "gis-development",
+    "description": "Responsible for web checking and lead IT functions.",
+    "authority": "IT and web operations",
+    "order": 4
+  },
+  {
+    "id": "akira-fajardo",
+    "name": "Akira Lyod Fajardo",
+    "initials": "AF",
+    "role": "GIS Specialist · Data Encoder of ECC and CNC",
+    "position": "Environmental Clearance Data Encoder",
+    "unit": "Environmental Clearance (ECC & CNC)",
+    "room": "ecc-cnc-records",
+    "description": "Handles environmental clearance data encoding for Environmental Compliance Certificates (ECC) and Certificates of Non-Coverage (CNC).",
+    "authority": "GIS and ECC/CNC data encoding",
+    "order": 5
+  },
+  {
+    "id": "alfred-calumba",
+    "name": "Engr. Alfred Calumba",
+    "initials": "AC",
+    "role": "Data Manager, Air & Water Permitting Section",
+    "position": "Air & Water Permitting Data Manager",
+    "unit": "Air & Water Permitting Section",
+    "room": "air-water-permits",
+    "description": "Manages discharge permits and permits to operate.",
+    "authority": "Air and water permitting records",
+    "order": 6
+  },
+  {
+    "id": "jason-tecson",
+    "name": "Jason Tecson",
+    "initials": "JT",
+    "role": "Data Manager for Hazardous Waste",
+    "position": "Hazardous Waste Data Manager",
+    "unit": "Hazardous Waste Management",
+    "room": "hazardous-waste-records",
+    "description": "Manages hazardous waste registrations and records.",
+    "authority": "Hazardous waste registrations and records",
+    "order": 7
+  },
+  {
+    "id": "christine-gigante",
+    "name": "Christine Alipuyo Gigante",
+    "initials": "CG",
+    "role": "SWM Encoder",
+    "position": "Solid Waste Management Encoder",
+    "unit": "Solid Waste Management (SWM)",
+    "room": "swm-records",
+    "description": "Encodes and maintains the Solid Waste Management (SWM) information assigned to the section.",
+    "authority": "SWM data encoding",
+    "order": 8
+  },
+  {
+    "id": "kurt-baylan",
+    "name": "Kurt Baylan",
+    "initials": "KB",
+    "role": "AQMS Data Manager",
+    "position": "Air Quality Monitoring System Data Manager",
+    "unit": "Air Quality Monitoring System (AQMS)",
+    "room": "aqms-monitoring",
+    "description": "Manages AQMS data and monitoring records.",
+    "authority": "AQMS data management",
+    "order": 9
+  },
+  {
+    "id": "ej-dimacali",
+    "name": "EJ Dimacali",
+    "initials": "ED",
+    "role": "Server Specialist · Database Security Head",
+    "position": "Server Specialist / EMB Database Security Head",
+    "unit": "Server Infrastructure & Database Security",
+    "room": "server-security",
+    "description": "Responsible for server infrastructure and security oversight of the EMB database.",
+    "authority": "Server operations and database security",
+    "order": 10
+  }
+]

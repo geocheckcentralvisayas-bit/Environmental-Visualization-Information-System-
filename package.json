@@ -1,7 +1,7 @@
 {
   "name": "envis-dashboard",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "DENR-EMB Region VII Environmental Permits Monitoring Dashboard",
   "scripts": {

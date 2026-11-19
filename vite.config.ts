@@ -1,9 +1,22 @@
+import { execSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
-const buildNumber = process.env.GITHUB_RUN_NUMBER ?? '';
+// GitHub Actions supplies the run number. Locally, use the commit count so the
+// build identity advances with every commit instead of staying frozen.
+function localBuildNumber(): string {
+  if (process.env.GITHUB_RUN_NUMBER) return process.env.GITHUB_RUN_NUMBER;
+  try {
+    return execSync('git rev-list --count HEAD', { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return '';
+  }
+}
+const buildNumber = localBuildNumber();
 const commitSha = (process.env.GITHUB_SHA ?? '').slice(0, 7);
 
 /**
@@ -84,7 +97,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
-    watch: { ignored: ['**/data/raw/**', '**/data/*.csv', '**/data/*.xlsx', '**/dist/**'] },
+    watch: { ignored: ['**/data/raw/**', '**/data/*.csv', '**/data/*.xlsx', '**/dist/**', '**/ENVIS-Pixel-Office/**'] },
     // Local development: the authenticated API runs as a Cloudflare Worker on
     // :8787 (`npm run api:dev`). Production builds use VITE_API_BASE instead.
     proxy: {

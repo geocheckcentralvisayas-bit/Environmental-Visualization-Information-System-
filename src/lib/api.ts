@@ -20,7 +20,7 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
     // Login/verify 401s are ordinary credential failures and must not sign out
     // the dashboard, so only these paths trigger the event.
     const protectedRead =
-      path.startsWith('/data/') || path.startsWith('/admin/');
+      path.startsWith('/data/') || path.startsWith('/admin/') || path.startsWith('/pixel/');
     if (response.status === 401 && protectedRead && typeof window !== 'undefined') {
       window.dispatchEvent(new Event('envis:unauthorized'));
     }

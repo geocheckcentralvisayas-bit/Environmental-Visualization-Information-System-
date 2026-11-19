@@ -1,0 +1,165 @@
+[
+  {
+    "id": "executive-office",
+    "name": "Office of the Regional Director",
+    "shortName": "REGIONAL DIRECTOR",
+    "tagline": "Leadership · Direction · Decisions",
+    "purpose": "The executive office of DENR-EMB Region VII. Official institutional decisions and approvals are led by the Regional Director.",
+    "employees": [
+      "edward-ang"
+    ],
+    "functions": [
+      "Regional direction and oversight",
+      "Review of official matters",
+      "Institutional decisions and approvals"
+    ]
+  },
+  {
+    "id": "gis-development",
+    "name": "GIS, Digital Development & IT Office",
+    "shortName": "GIS / DEVELOPMENT / IT",
+    "tagline": "Map · Build · Maintain · Support",
+    "purpose": "The technical workspace for GIS, ENVIS development and maintenance, project coordination, web checking, and lead IT responsibilities.",
+    "employees": [
+      "kent-agbayani",
+      "jumar-doublas"
+    ],
+    "functions": [
+      "GIS and mapping workflows",
+      "Platform development and maintenance",
+      "Project management and technical administration",
+      "Web checking and lead IT responsibilities"
+    ]
+  },
+  {
+    "id": "mis-planning",
+    "name": "MIS, Planning & PISMU Office",
+    "shortName": "MIS / PLANNING / PISMU",
+    "tagline": "Information · Planning · Coordination",
+    "purpose": "The office space for management information systems, planning, and overall PISMU leadership.",
+    "employees": [
+      "stepen-lee"
+    ],
+    "functions": [
+      "Management Information System",
+      "Planning functions",
+      "Overall PISMU leadership"
+    ]
+  },
+  {
+    "id": "ecc-cnc-records",
+    "name": "ECC & CNC Data Office",
+    "shortName": "ECC & CNC",
+    "tagline": "Environmental Clearance Records",
+    "purpose": "The data-encoding workspace for environmental clearance information, including ECC and CNC records.",
+    "employees": [
+      "akira-fajardo"
+    ],
+    "functions": [
+      "ECC data encoding",
+      "CNC data encoding",
+      "GIS support for clearance records"
+    ]
+  },
+  {
+    "id": "air-water-permits",
+    "name": "Air & Water Permitting Section",
+    "shortName": "AIR & WATER PERMITS",
+    "tagline": "Permits · Discharges · Operations",
+    "purpose": "The section workspace for air and water permitting information and associated data records.",
+    "employees": [
+      "alfred-calumba"
+    ],
+    "functions": [
+      "Discharge permits",
+      "Permits to operate",
+      "Air and water permitting records"
+    ]
+  },
+  {
+    "id": "server-security",
+    "name": "Server & Database Security Room",
+    "shortName": "SERVER & SECURITY",
+    "tagline": "Infrastructure · Access · Protection",
+    "purpose": "The technical room for server operations and database security oversight for EMB systems.",
+    "employees": [
+      "ej-dimacali"
+    ],
+    "functions": [
+      "Server infrastructure",
+      "Database security oversight",
+      "Technical protection and access controls"
+    ]
+  },
+  {
+    "id": "aqms-monitoring",
+    "name": "AQMS Data & Monitoring Office",
+    "shortName": "AQMS DATA",
+    "tagline": "Air Quality · Monitoring · Records",
+    "purpose": "The workspace for Air Quality Monitoring System data management and monitoring records.",
+    "employees": [
+      "kurt-baylan"
+    ],
+    "functions": [
+      "AQMS data management",
+      "Air quality monitoring records",
+      "Station data coordination"
+    ]
+  },
+  {
+    "id": "central-lobby",
+    "name": "Central Lobby & Reception",
+    "shortName": "CENTRAL LOBBY",
+    "tagline": "Reception · Waiting · Access",
+    "purpose": "The shared central lobby connecting the EMB office areas.",
+    "employees": [],
+    "functions": [
+      "Main circulation area",
+      "Visitor waiting space",
+      "Access to department offices"
+    ]
+  },
+  {
+    "id": "hazardous-waste-records",
+    "name": "Hazardous Waste Records Office",
+    "shortName": "HAZARDOUS WASTE",
+    "tagline": "Registration · Tracking · Records",
+    "purpose": "The data management workspace for hazardous waste registrations and records.",
+    "employees": [
+      "jason-tecson"
+    ],
+    "functions": [
+      "Hazardous waste registrations",
+      "Hazardous waste records",
+      "Data management"
+    ]
+  },
+  {
+    "id": "swm-records",
+    "name": "Solid Waste Management Data Office",
+    "shortName": "SWM DATA & ENCODING",
+    "tagline": "Solid Waste · Encoding · Records",
+    "purpose": "The workspace for Solid Waste Management data encoding and records.",
+    "employees": [
+      "christine-gigante"
+    ],
+    "functions": [
+      "SWM data encoding",
+      "Solid Waste Management information",
+      "Records maintenance"
+    ]
+  },
+  {
+    "id": "staff-lounge",
+    "name": "Regional Staff Lounge",
+    "shortName": "STAFF LOUNGE",
+    "tagline": "Staff Area · Break Space",
+    "purpose": "A shared staff area for breaks and informal conversations.",
+    "employees": [],
+    "functions": [
+      "Staff seating",
+      "Refreshments",
+      "Informal discussions"
+    ]
+  }
+]
