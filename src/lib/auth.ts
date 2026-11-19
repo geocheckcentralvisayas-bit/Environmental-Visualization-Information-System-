@@ -58,9 +58,18 @@ export interface ActivityEntry {
 
 const SESSION_KEY = 'envis.session';
 const ACCOUNTS_KEY = 'envis.accounts.v1';
+const SEED_VERSION_KEY = 'envis.accounts.seed';
 const ACTIVITY_KEY = 'envis.activity.v1';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const ACTIVITY_LIMIT = 2000;
+
+/**
+ * Bump whenever the built-in password hashes in `SEED_ACCOUNTS` change. On the
+ * next load, existing browsers replace their stored built-in hashes with the
+ * new seeds (and their sessions are invalidated by the password fingerprint).
+ * Accounts created in the admin panel are never touched.
+ */
+const SEED_VERSION = 2;
 
 /**
  * Username pepper. This is not a secret; it only prevents a precomputed
@@ -94,42 +103,42 @@ const SEED_ACCOUNTS: SeedAccount[] = [
     role: 'extraction',
     displayName: 'Data Extraction Unit',
     division: 'Data Extraction',
-    passwordHash: 'pbkdf2$210000$e0f9f18f77243bc11d8bb18208554eb5$df91f4c536d8ab0545c322467383451218f8823d39c7535a5475f2abddb75824',
+    passwordHash: 'pbkdf2$210000$cfb1f88cea6ed20f7d1e29318ec571f3$3a1d1270af109e2c4893020a523e719fc510582a1f9c810481aca242a0b58d87',
   },
   {
     userKey: 'cb34f4063bfa321825fbe3a8be7b6a5efc80fdcfd688d7443db6b95d1352d412',
     role: 'rd',
     displayName: 'Regional Director',
     division: 'Office of the Regional Director',
-    passwordHash: 'pbkdf2$210000$a6f0319013435d0c36ca2ede420ee3fd$f059d439ba8526c3540a3dee99510712ded4bfa58c59d20a39b2f068df5543c0',
+    passwordHash: 'pbkdf2$210000$9856ee30cf7e7d239b74bbb5656b916b$5d5b5372be1f16fab3bd8234735fe074eea7611c37139d61c87f00d9abe31289',
   },
   {
     userKey: 'f1ce19033c4403c2353a20d50513750e2b4bf8fcfdce65e89fd10ad1f2ce325b',
     role: 'emed',
     displayName: 'Environmental Monitoring & Enforcement Division',
     division: 'EMED',
-    passwordHash: 'pbkdf2$210000$a95d35d8289c5579f3d9508a2772d46d$0e24c1b4e302d1ab7dba2cc8586c9e271fe1976f075406295aa95c7d595cd759',
+    passwordHash: 'pbkdf2$210000$794bafa8881621367392e72bc4e01aad$f9d59bf2da41dd9037940f7ef1454e8432207edd1230c8892f6881a1438d24c8',
   },
   {
     userKey: 'c2196462c0f6865cbeb566d2d3b9a4f511213b3b09a8b22149ec94e3c04df89d',
     role: 'cpd',
     displayName: 'Clearance and Permitting Division',
     division: 'CPD',
-    passwordHash: 'pbkdf2$210000$5e7b4bf6befc5cf29b6eb9269e4ed4d0$3ca3ae33648a4e1db2bae0ca2817d308f1fc7137b08d764a0f7e989d7a3a50b0',
+    passwordHash: 'pbkdf2$210000$30ba65fc70b235ac5b5ea605783417ee$9433a0d4bf0983bfd6c871dff98f857e317798fc49c8bb9c4c608a38222fe16f',
   },
   {
     userKey: 'f5d075e171d01cb3c3ecc91276b7679f8f911b76c7122b106aa16c898469ad63',
     role: 'mis',
     displayName: 'Management and Information System',
     division: 'MIS',
-    passwordHash: 'pbkdf2$210000$65e3901f77fcff64980091f5bd733787$aaa4adf2c9bc974d2d351998e2054f7ab5210e11b044275d7063744e9ec24be9',
+    passwordHash: 'pbkdf2$210000$6ec997788c2e7e23b74ea9c092080b89$39c3684f6cfc263b0ac71a4943d4c59fc38cefec7a1962e7cbe516af22489329',
   },
   {
     userKey: '19b2041b6fc9fac0dbf80d27306f9d3665f995d9f45214d74c4042bf7b06bb15',
     role: 'gis',
     displayName: 'GIS Unit',
     division: 'GIS / Spatial Data',
-    passwordHash: 'pbkdf2$210000$91b8b69a3ddcb8834707410a14472a9f$bf52e4d79172ffad9183dc1a41c25e309a71684c02125f437413937087580c64',
+    passwordHash: 'pbkdf2$210000$9043f0af84fe56f4c2d1b0ae07b5ee00$d2cad01a5430b94bd1942ad28d9141dbb3574429b3fd9e9703e27e6586c3071c',
   },
 ];
 
@@ -282,9 +291,40 @@ function seedAccounts(): StoredAccount[] {
   }));
 }
 
+/**
+ * Replace the password hashes of built-in accounts with the current seeds so a
+ * credential rotation reaches browsers that already cached the old registry.
+ * Locally created accounts (builtin === false) and admin changes to role,
+ * division, or active state are preserved.
+ */
+function refreshBuiltinAccounts(stored: StoredAccount[]): StoredAccount[] {
+  const now = Date.now();
+  return stored.map((account) => {
+    if (account.builtin === false) return account;
+    const seed =
+      SEED_ACCOUNTS.find((candidate) => candidate.userKey === account.username) ??
+      SEED_BY_DISPLAY.get(account.displayName);
+    if (!seed) return account;
+    return {
+      ...account,
+      username: seed.userKey,
+      passwordHash: seed.passwordHash,
+      builtin: true,
+      updatedAt: now,
+    };
+  });
+}
+
 export function getAccounts(): StoredAccount[] {
   const stored = readJson<StoredAccount[] | null>(ACCOUNTS_KEY, null);
+  const seedVersion = readJson<number>(SEED_VERSION_KEY, 0);
   if (Array.isArray(stored) && stored.length) {
+    if (seedVersion !== SEED_VERSION) {
+      const refreshed = refreshBuiltinAccounts(stored);
+      saveAccounts(refreshed);
+      writeJson(SEED_VERSION_KEY, SEED_VERSION);
+      return refreshed;
+    }
     let changed = false;
     const migrated = stored.map((account) => {
       let next = account;
@@ -310,6 +350,7 @@ export function getAccounts(): StoredAccount[] {
   }
   const initial = seedAccounts();
   writeJson(ACCOUNTS_KEY, initial);
+  writeJson(SEED_VERSION_KEY, SEED_VERSION);
   return initial;
 }
 
