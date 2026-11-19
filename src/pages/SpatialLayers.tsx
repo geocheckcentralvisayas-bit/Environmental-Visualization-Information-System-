@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CheckSquare, Download, Eye, EyeOff, Layers3, MousePointer2, Square } from 'lucide-react';
 import { requestGeoJson } from '../lib/exportGate';
 import { getSession } from '../lib/auth';
+import { dataUrl } from '../lib/api';
 import clsx from 'clsx';
 import { useDashboard } from '../store/useDashboard';
 import { MapView } from '../components/MapView';
@@ -151,13 +152,20 @@ export function SpatialLayersPage() {
                       {on ? 'Hide' : 'Preview'}
                     </button>
                     {getSession()?.role !== 'rd' && (
-                      <button type="button" className="btn btn-xs btn-ghost" onClick={() => requestGeoJson(() => {
-                        const a = document.createElement("a");
-                        a.href = `${import.meta.env.BASE_URL || "./"}data/geojson/${layer.file}`;
+                      <button type="button" className="btn btn-xs btn-ghost" onClick={() => requestGeoJson(async () => {
+                        const response = await fetch(dataUrl(`geojson/${layer.file}`), { credentials: 'include' });
+                        if (!response.ok) {
+                          window.alert('Could not download this layer. Sign in with the GIS account and try again.');
+                          return;
+                        }
+                        const url = URL.createObjectURL(await response.blob());
+                        const a = document.createElement('a');
+                        a.href = url;
                         a.download = layer.file;
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
+                        URL.revokeObjectURL(url);
                       })}>
                         <Download size={11} /> GeoJSON
                       </button>

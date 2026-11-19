@@ -6,7 +6,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { SiteDrawer } from './components/SiteDrawer';
 import { LoginGate } from './components/LoginGate';
 import { subscribeGate, resolveGate, cancelGate, tryGateLogin, getPendingKind } from './lib/exportGate';
-import { getSession, logout, type Session } from './lib/auth';
+import { loadSession, type Session } from './lib/auth';
+import { dataUrl } from './lib/api';
 import type { PageId } from './types';
 
 const OverviewPage = lazy(() => import('./pages/Overview').then((m) => ({ default: m.OverviewPage })));
@@ -65,7 +66,8 @@ export default function App() {
   const page = useDashboard((state) => state.page);
   const setPage = useDashboard((state) => state.setPage);
   const setSessionStore = useDashboard((state) => state.setSession);
-  const [session, setSession] = useState<Session | null>(() => getSession());
+  const [session, setSession] = useState<Session | null>(null);
+  const [booting, setBooting] = useState(true);
 
   const [gateOpen, setGateOpen] = useState(false);
   const [exportUser, setExportUser] = useState('');
@@ -98,9 +100,20 @@ useEffect(() => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    // The session lives in an HttpOnly cookie, so the browser cannot read it.
+    // Ask the API once on boot and only load data after we know who is signed in.
+    loadSession()
+      .then((value) => { if (!cancelled) setSession(value); })
+      .finally(() => { if (!cancelled) setBooting(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
     const load = useDashboard.getState().load;
     load();
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (session?.role === 'rd' && page === 'reports') {
@@ -133,7 +146,7 @@ useEffect(() => {
     const builtAt = data.meta.generatedAt;
     const interval = setInterval(async () => {
       try {
-        const response = await fetch('/data/meta.json', { cache: 'no-store' });
+        const response = await fetch(dataUrl('meta.json'), { cache: 'no-store', credentials: 'include' });
         if (!response.ok) return;
         const meta = await response.json();
         if (meta?.generatedAt && meta.generatedAt !== builtAt) {
@@ -145,6 +158,27 @@ useEffect(() => {
     }, 60000);
     return () => clearInterval(interval);
   }, [data]);
+
+  if (booting) {
+    return (
+      <div className="app-shell grid-noise grid min-h-screen place-items-center px-6">
+        <div className="relative z-10 w-full max-w-sm text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-ink-950 shadow-glow">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2C8 7 5 10.5 5 14a7 7 0 0 0 14 0c0-3.5-3-7-7-12Z" />
+              <path d="M9 14c0 1.7 1.3 3 3 3" />
+            </svg>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <span className="text-[19px] font-extrabold tracking-tight text-slate-50">ENVIS</span>
+            <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300">Region VII</span>
+          </div>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">DENR-EMB Central Visayas</p>
+          <p className="mt-6 text-[11px] text-slate-500">Checking your session…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) {
     return <LoginGate onLogin={setSession} />;

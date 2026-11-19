@@ -35,6 +35,11 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          # Set this repository variable to the deployed Worker's /api URL.
+          # When it is empty the app falls back to the /api proxy used in local
+          # development, which is not valid on GitHub Pages.
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
         run: npm run build
 
       - name: Write build summary
@@ -65,6 +70,16 @@ jobs:
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "GitHub Pages is not enabled for ${GITHUB_REPOSITORY} (HTTP ${code}); skipping deploy."
+          fi
+
+      - name: Verify API base
+        if: steps.pages.outputs.enabled == 'true'
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: |
+          if [ -z "$VITE_API_BASE" ]; then
+            echo "::error::Set the VITE_API_BASE repository variable before deploying (for example https://<worker-host>/api)."
+            exit 1
           fi
 
       - name: Upload Pages artifact

@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { AlertTriangle, ChevronDown, Crosshair, Layers3, Map as MapIcon, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { useDashboard, useFilteredFacilities, useFilteredPermits } from '../store/useDashboard';
+import { dataUrl } from '../lib/api';
 import {
   GAP_META, LEGAL_STATUS_STYLE, LIFECYCLE_STYLE, REGISTER_META, REGISTER_ORDER, RISK_LABELS, escapeHtml, formatDate, formatNumber, riskColor,
 } from '../lib/format';
@@ -418,9 +419,8 @@ export function MapView({
       if (cached) return cached;
       const inflight = overlayRequests.current.get(meta.id);
       if (inflight) return inflight;
-      const base = import.meta.env.BASE_URL || './';
       const request = (async () => {
-        const response = await fetch(`${base}data/geojson/${meta.file}`);
+        const response = await fetch(dataUrl(`geojson/${meta.file}`), { credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${meta.name}`);
         return response.json() as Promise<unknown>;
       })();

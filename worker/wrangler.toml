@@ -1,0 +1,27 @@
+name = "envis-region-vii-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# The dashboard UI is served from GitHub Pages; cookies are cross-site, so the
+# Worker must answer CORS for those origins and the session cookie is
+# SameSite=None; Secure.
+[vars]
+SESSION_TTL_HOURS = "8"
+COOKIE_NAME = "envis_sid"
+ALLOWED_ORIGINS = "https://geocheckcentralvisayas-bit.github.io,http://localhost:5173,http://localhost:4173,http://localhost:4181"
+
+# Local development uses a placeholder id; replace both values with the ids
+# printed by `wrangler d1 create` / `wrangler r2 bucket create` before deploy.
+[[d1_databases]]
+binding = "DB"
+database_name = "envis"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "envis-data"
+
+[observability]
+enabled = true

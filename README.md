@@ -62,9 +62,10 @@ aid, not a replacement for official records, permits or clearances.
 
 ## How it works
 
-ENVIS is a static site. All heavy work happens before publication, so the browser
-only filters and renders pre-compiled JSON — no database, no server and no
-per-request queries.
+ENVIS is a React dashboard backed by an authenticated **Cloudflare Worker API**.
+All heavy work happens before publication, so the API only streams pre-compiled
+JSON from private object storage to signed-in accounts — the browser filters and
+renders that data locally.
 
 ```mermaid
 flowchart LR
@@ -73,7 +74,10 @@ flowchart LR
     C --> D[Spatial screening and risk index]
     D --> E[Legal docket matching]
     E --> F[Static JSON]
-    F --> G[React + Vite dashboard]
+    F --> R[(Private R2 storage)]
+    R --> W[Cloudflare Worker API]
+    D1[(D1: accounts, sessions, audit)] --- W
+    W --> G[React + Vite dashboard]
     G --> H[Browser: filter, search, map]
 ```
 
@@ -90,8 +94,9 @@ flowchart LR
 5. **Match the legal docket.** NOV, PAB, ERF and complaint respondents are linked
    to establishments by exact or reviewed names only — never by automatic fuzzy
    matching.
-6. **Publish and explore.** The browser loads compact JSON and provides search,
-   filters, tables, charts and a clustered Leaflet map.
+6. **Publish and explore.** The Worker serves compact JSON from private storage;
+   the browser provides search, filters, tables, charts and a clustered Leaflet
+   map.
 
 ## Highlights
 
@@ -168,9 +173,10 @@ version history live in the **About & License** page.
 | GIS | Spatial and map views | GeoJSON |
 | Viewer | Read-only dashboard | None |
 
-Accounts and activity are stored in the browser's local storage, so they are
-specific to the device where they were recorded. A shared backend is required to
-synchronise users and activity across devices.
+Accounts, sessions and the audit trail are stored centrally in Cloudflare D1, so
+a sign-in or export recorded on one device appears on every device. Sessions
+expire after 8 hours; changing a password revokes every existing session for that
+account.
 
 ## Data quality and limitations
 
@@ -187,6 +193,37 @@ synchronise users and activity across devices.
 - The dashboard is a monitoring aid and does not replace official records,
   permits or clearances.
 
+## Local development and API
+
+The dashboard front end and the API run as two processes in development:
+
+```bash
+npm install
+npm run api:db          # apply D1 migrations locally
+npm run api:seed        # build hashed accounts from CREDENTIALS.md
+npm run api:seed:apply  # load the hashes into local D1
+npm run api:upload      # copy public/data into local R2
+npm run api:dev         # Worker API on http://localhost:8787
+npm run dev             # Vite on http://localhost:5173 (proxies /api)
+```
+
+`CREDENTIALS.md` is git-ignored and is the only place plaintext passwords exist.
+`npm run api:seed` writes a git-ignored SQL file with PBKDF2 hashes; it never
+prints passwords. Local D1/R2 state lives in `worker/.wrangler` and can be reset
+by deleting that folder and re-running the four setup commands above.
+
+For a published build set the API base URL at build time. On GitHub Actions, set
+it as the `VITE_API_BASE` repository variable; the deploy workflow refuses to
+upload a Pages artifact when it is missing.
+
+```bash
+VITE_API_BASE=https://envis-region-vii-api.<account>.workers.dev/api npm run build
+```
+
+Until the Worker is deployed, the build keeps using the `/api` proxy path. See
+[worker/README.md](worker/README.md) for the deploy checklist and the cutover that
+removes `public/data` from the published bundle.
+
 ## Versioning and releases
 
 Every push to `main` triggers the deploy workflow in GitHub Actions. The build
@@ -202,13 +239,20 @@ Actions runs and releases.
 
 - Login names and passwords are **not** stored in plaintext in the repository or
   the published bundle. Built-in accounts are seeded with opaque keys and salted
-  PBKDF2-SHA256 password hashes.
+  PBKDF2-SHA256 password hashes held only in D1.
+- The session lives in an `HttpOnly`, `Secure`, `SameSite=None` cookie; the
+  browser never reads it and no token is written to local storage.
+- Every dataset request goes through the Worker. Anonymous requests to
+  `/api/data/*` return **401**, and raw JSON is no longer published as a static
+  file.
+- Login throttling locks an IP/username pair after repeated failures, and
+  privileged actions require re-authentication.
 - Source maps are disabled in production, so the shipped bundle does not expose
   application source files.
-- CSV/JSON exports and GeoJSON downloads are gated behind role-based login.
+- CSV/JSON exports and GeoJSON downloads are gated behind role-based login and
+  recorded in the shared audit log.
 - CSV export is hardened against formula injection.
 - The error boundary renders a generic message; no stack traces reach end users.
-- No server-side surface: static files only.
 
 ## About the author
 

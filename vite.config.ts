@@ -14,13 +14,22 @@ const commitSha = (process.env.GITHUB_SHA ?? '').slice(0, 7);
  * is intentionally omitted because browsers ignore it in a meta tag — set it as a
  * real HTTP header on the host if the deployment platform allows it.
  */
+const apiBase = process.env.VITE_API_BASE ?? '';
+let apiOrigin = '';
+try {
+  if (apiBase) apiOrigin = new URL(apiBase).origin;
+} catch {
+  apiOrigin = '';
+}
+const connectSources = ["'self'", ...(apiOrigin ? [apiOrigin] : [])].join(' ');
+
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org",
-  "connect-src 'self'",
+  `connect-src ${connectSources}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -56,6 +65,14 @@ export default defineConfig({
     port: 5173,
     open: false,
     watch: { ignored: ['**/data/raw/**', '**/dist/**'] },
+    // Local development: the authenticated API runs as a Cloudflare Worker on
+    // :8787 (`npm run api:dev`). Production builds use VITE_API_BASE instead.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: false,
+      },
+    },
   },
   build: {
     outDir: 'dist',

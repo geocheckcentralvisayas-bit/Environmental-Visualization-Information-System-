@@ -4,8 +4,8 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
-  ROLES, addAccount, canManageAccounts, clearActivity, deleteAccount, exportAccountsJson, getAccounts, getActivity, getSession,
-  importAccountsJson, setAccountActive, setAccountPassword, updateAccount,
+  ROLES, addAccount, canManageAccounts, clearActivity, deleteAccount, exportAccountsJson, getSession, importAccountsJson,
+  listAccounts, listActivity, setAccountActive, setAccountPassword, updateAccount,
   type ActivityEntry, type ActivityType, type Role, type StoredAccount,
 } from '../lib/auth';
 import { requestExport } from '../lib/exportGate';
@@ -99,8 +99,8 @@ export function AdminPage() {
   const session = getSession();
   const [tab, setTab] = useState<'accounts' | 'activity'>('accounts');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [accounts, setAccounts] = useState<StoredAccount[]>(() => getAccounts());
-  const [activity, setActivity] = useState<ActivityEntry[]>(() => getActivity());
+  const [accounts, setAccounts] = useState<StoredAccount[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -117,22 +117,42 @@ export function AdminPage() {
   const [activityFilter, setActivityFilter] = useState<ActivityType | 'all'>('all');
   const [activitySearch, setActivitySearch] = useState('');
 
+  const fail = (err: unknown) => {
+    setError(err instanceof Error ? err.message : 'Something went wrong.');
+    setNotice('');
+  };
+
+  const refreshAccounts = async () => {
+    try {
+      setAccounts(await listAccounts());
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const refreshActivity = async () => {
+    try {
+      setActivity(await listActivity('all', 500));
+    } catch (err) {
+      fail(err);
+    }
+  };
+
   useEffect(() => {
-    const id = setInterval(() => setActivity(getActivity()), 5000);
-    return () => clearInterval(id);
+    void refreshAccounts();
+    void refreshActivity();
   }, []);
 
-  const refreshAccounts = () => setAccounts(getAccounts());
+  useEffect(() => {
+    if (tab !== 'activity') return;
+    const id = setInterval(() => { void refreshActivity(); }, 5000);
+    return () => clearInterval(id);
+  }, [tab]);
 
   const flash = (message: string) => {
     setNotice(message);
     setError('');
-    setActivity(getActivity());
-  };
-
-  const fail = (err: unknown) => {
-    setError(err instanceof Error ? err.message : 'Something went wrong.');
-    setNotice('');
+    void refreshActivity();
   };
 
   const handleAdd = async (event: FormEvent) => {
@@ -144,7 +164,7 @@ export function AdminPage() {
     setBusy(true);
     try {
       await addAccount(addForm);
-      refreshAccounts();
+      await refreshAccounts();
       setShowAdd(false);
       setAddForm({ username: '', displayName: '', division: '', role: 'viewer', password: '', confirm: '' });
       flash('Account created.');
@@ -168,10 +188,11 @@ export function AdminPage() {
     setBusy(true);
     try {
       await updateAccount(editing.username, {
-        ...editForm,
-        username: editForm.username.trim() ? editForm.username : undefined,
+        displayName: editForm.displayName,
+        division: editForm.division,
+        role: editForm.role,
       });
-      refreshAccounts();
+      await refreshAccounts();
       setEditing(null);
       flash('Account updated.');
     } catch (err) {
@@ -198,7 +219,7 @@ export function AdminPage() {
     setBusy(true);
     try {
       await setAccountPassword(passwordFor.username, pwForm.password);
-      refreshAccounts();
+      await refreshAccounts();
       setPasswordFor(null);
       flash(`Password updated for ${passwordFor.displayName}.`);
     } catch (err) {
@@ -208,21 +229,21 @@ export function AdminPage() {
     }
   };
 
-  const handleToggleActive = (account: StoredAccount) => {
+  const handleToggleActive = async (account: StoredAccount) => {
     try {
-      setAccountActive(account.username, !account.active);
-      refreshAccounts();
+      await setAccountActive(account.username, !account.active);
+      await refreshAccounts();
       flash(`${account.displayName} ${account.active ? 'deactivated' : 'activated'}.`);
     } catch (err) {
       fail(err);
     }
   };
 
-  const handleDelete = (account: StoredAccount) => {
+  const handleDelete = async (account: StoredAccount) => {
     if (!window.confirm(`Delete account "${account.displayName}"? This cannot be undone.`)) return;
     try {
-      deleteAccount(account.username);
-      refreshAccounts();
+      await deleteAccount(account.username);
+      await refreshAccounts();
       flash('Account deleted.');
     } catch (err) {
       fail(err);
@@ -231,7 +252,7 @@ export function AdminPage() {
 
   const handleExportAccounts = () => {
     requestExport(() => {
-      const blob = new Blob([exportAccountsJson()], { type: 'application/json' });
+      const blob = new Blob([exportAccountsJson(accounts)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -249,9 +270,9 @@ export function AdminPage() {
     setNotice('');
     try {
       const text = await file.text();
-      const result = importAccountsJson(text);
-      refreshAccounts();
-      setActivity(getActivity());
+      const result = await importAccountsJson(text);
+      await refreshAccounts();
+      await refreshActivity();
       flash(`Imported accounts: ${result.added} added, ${result.updated} updated, ${result.skipped} skipped.`);
     } catch (err) {
       fail(err);
@@ -282,11 +303,15 @@ export function AdminPage() {
       })),
     );
 
-  const handleClearActivity = () => {
+  const handleClearActivity = async () => {
     if (!window.confirm('Clear the activity log? This cannot be undone.')) return;
-    clearActivity();
-    setActivity([]);
-    flash('Activity log cleared.');
+    try {
+      await clearActivity();
+      setActivity([]);
+      flash('Activity log cleared.');
+    } catch (err) {
+      fail(err);
+    }
   };
 
   const stats = useMemo(() => ({
@@ -427,10 +452,10 @@ export function AdminPage() {
       <SectionHeading
         eyebrow="MIS only"
         title="Accounts & Activity"
-        description="Manage dashboard accounts and review sign-in, export and account-change activity. Data is stored in this browser's local storage."
+        description="Manage dashboard accounts and review sign-in, export and account-change activity. Accounts and audit events are shared across devices through the ENVIS API."
         action={
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn" onClick={() => { refreshAccounts(); setActivity(getActivity()); }}>
+            <button type="button" className="btn" onClick={() => { void refreshAccounts(); void refreshActivity(); }}>
               <RefreshCw size={13} /> Refresh
             </button>
             {tab === 'accounts' ? (
@@ -478,7 +503,7 @@ export function AdminPage() {
             type="button"
             onClick={() => {
               setTab(item.id);
-              if (item.id === 'activity') setActivity(getActivity());
+              if (item.id === 'activity') void refreshActivity();
             }}
             className={clsx(
               'border-b-2 px-4 py-2 text-[12px] font-medium transition-colors',
@@ -493,7 +518,7 @@ export function AdminPage() {
       {tab === 'accounts' && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Accounts" value={formatNumber(stats.total)} hint="Registered in this browser" icon={<UserPlus size={17} />} accent="emerald" />
+            <StatCard label="Accounts" value={formatNumber(stats.total)} hint="Registered accounts" icon={<UserPlus size={17} />} accent="emerald" />
             <StatCard label="Active" value={formatNumber(stats.active)} hint={`${formatNumber(stats.total - stats.active)} inactive`} icon={<ShieldCheck size={17} />} accent="sky" />
             <StatCard label="MIS accounts" value={formatNumber(stats.mis)} hint="Can manage this panel" icon={<ShieldCheck size={17} />} accent="violet" />
             <StatCard label="Exporters" value={formatNumber(stats.exporters)} hint="Data extraction + MIS roles" icon={<Download size={17} />} accent="amber" />
@@ -501,7 +526,7 @@ export function AdminPage() {
 
           <Panel
             title="Dashboard accounts"
-            subtitle="Changes apply to this browser. Passwords are stored as salted PBKDF2-SHA256 hashes."
+            subtitle="Changes apply to every device. Passwords are stored as salted PBKDF2-SHA256 hashes."
             bodyClassName="p-3"
           >
             <DataTable<StoredAccount>
@@ -515,7 +540,7 @@ export function AdminPage() {
           </Panel>
 
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] px-3 py-2 text-[10.5px] leading-relaxed text-slate-500">
-            Accounts and activity are stored in this browser's local storage, so they are specific to this device. To make an account available on another device, an MIS admin can <span className="font-medium text-slate-400">Export accounts</span> here and <span className="font-medium text-slate-400">Import accounts</span> it on the other device. Built-in accounts use protected keys and cannot be renamed from this panel; reset their password or deactivate them instead. A shared backend is required for automatic cross-device sync.
+            Accounts and activity are stored in the shared ENVIS API, so changes apply on every device. <span className="font-medium text-slate-400">Export accounts</span> produces a password-free JSON snapshot you can keep as a backup; <span className="font-medium text-slate-400">Import accounts</span> restores it. Built-in accounts use protected keys and cannot be renamed from this panel; reset their password or deactivate them instead.
           </div>
         </>
       )}
@@ -523,7 +548,7 @@ export function AdminPage() {
       {tab === 'activity' && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard label="Events" value={formatNumber(activityStats.total)} hint="Stored in this browser" icon={<ShieldCheck size={17} />} accent="emerald" />
+            <StatCard label="Events" value={formatNumber(activityStats.total)} hint="Across all devices" icon={<ShieldCheck size={17} />} accent="emerald" />
             <StatCard label="CSV exports" value={formatNumber(activityStats.exports)} hint="Gated downloads" icon={<Download size={17} />} accent="sky" />
             <StatCard label="Sign-ins" value={formatNumber(activityStats.logins)} hint="Successful logins" icon={<ShieldCheck size={17} />} accent="violet" />
             <StatCard label="Failed sign-ins" value={formatNumber(activityStats.failed)} hint="Wrong password or unknown user" icon={<AlertTriangle size={17} />} accent="rose" />
@@ -554,7 +579,7 @@ export function AdminPage() {
             <DataTable<ActivityEntry>
               rows={filteredActivity}
               columns={activityColumns}
-              rowKey={(row) => row.id}
+              rowKey={(row) => String(row.id)}
               pageSize={50}
               maxHeight="max-h-[620px]"
               initialSort={{ key: 'at', direction: 'desc' }}
@@ -563,7 +588,7 @@ export function AdminPage() {
           </Panel>
 
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] px-3 py-2 text-[10.5px] leading-relaxed text-slate-500">
-            Activity is recorded in this browser's local storage, so it reflects sign-ins and downloads made on this device. A shared backend is required to monitor every user across devices.
+            Activity is recorded by the shared ENVIS API, so it reflects sign-ins and downloads made by every user on every device.
           </div>
         </>
       )}
@@ -602,16 +627,15 @@ export function AdminPage() {
       {editing && (
         <Modal title={`Edit ${editing.displayName}`} onClose={() => setEditing(null)}>
           <form onSubmit={handleSaveEdit} className="space-y-3">
-            {editing.builtin ? (
+            <Field label="Username">
+              <input className="input h-9 w-full text-slate-500" value={editing.builtin ? 'protected key' : editing.username} readOnly disabled />
+            </Field>
+            {editing.builtin && (
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10.5px] leading-relaxed text-slate-500">
                 This is a built-in account. Its login name is stored as a protected key, not as readable text.
                 Use <span className="font-medium text-slate-400">Reset password</span> or deactivate it from the
                 account list. Display name, division and role can still be changed.
               </div>
-            ) : (
-              <Field label="Username">
-                <input className="input h-9 w-full" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} required />
-              </Field>
             )}
             <Field label="Display name">
               <input className="input h-9 w-full" value={editForm.displayName} onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })} />

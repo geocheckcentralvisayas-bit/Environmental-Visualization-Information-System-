@@ -6,6 +6,12 @@ node_modules/
 dist/
 logs/
 
+# Cloudflare Worker local state and generated secrets
+worker/.local/
+worker/.wrangler/
+.dev.vars
+.dev.vars.*
+
 # Source spatial data (shapefiles) — provided separately, not published
 spatial-src/
 

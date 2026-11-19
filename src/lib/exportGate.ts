@@ -1,4 +1,4 @@
-import { login, canExport, canDownloadGeoJson, logActivity } from './auth';
+import { verifyCredentials } from './auth';
 
 export type GateKind = 'export' | 'geojson';
 
@@ -42,17 +42,14 @@ export function getPendingKind(): GateKind | null {
   return pending?.kind ?? null;
 }
 
+/**
+ * Re-authenticate without replacing the current dashboard session. The API
+ * checks that the supplied account is allowed to perform the pending action
+ * and records the event in the shared activity log.
+ */
 export async function tryGateLogin(username: string, password: string): Promise<boolean> {
-  const session = await login(username, password);
-  if (!session) return false;
   const kind = getPendingKind();
-  if (kind === 'export' && !canExport(session)) return false;
-  if (kind === 'geojson' && !canDownloadGeoJson(session)) return false;
-  const page = window.location.hash.replace(/^#\//, '') || 'overview';
-  if (kind === 'geojson') {
-    logActivity('geojson', `Downloaded GeoJSON from ${page}`, session.username, session.role);
-  } else {
-    logActivity('export', `Exported CSV from ${page}`, session.username, session.role);
-  }
-  return true;
+  if (!kind) return false;
+  const result = await verifyCredentials(username, password, kind);
+  return result.ok;
 }

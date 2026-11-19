@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useMemo } from 'react';
 import type { Clearance, EccUltraData, EccUltraRecord, Facility, HwRegistration, LayerManifest, LegalData, Meta, PageId, PCOAnalysis, PCORecord, Permit, QualityData, Site, SiteGap } from '../types';
 import type { Session } from '../lib/auth';
+import { dataUrl } from '../lib/api';
 
 export interface Filters {
   year: number | 'all';
@@ -81,8 +82,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 async function fetchJson<T>(file: string): Promise<T> {
-  const base = import.meta.env.BASE_URL || './';
-  const response = await fetch(`${base}data/${file}`);
+  const response = await fetch(dataUrl(file), { credentials: 'include' });
   if (!response.ok) throw new Error(`Could not load ${file} (HTTP ${response.status})`);
   return (await response.json()) as T;
 }

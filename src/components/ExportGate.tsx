@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react';
-import { login, getSession, canExport, type Session } from '../lib/auth';
+import { canExport, getSession, verifyCredentials } from '../lib/auth';
 
 interface ExportGateContextValue {
   guard: (action: () => void) => void;
@@ -32,10 +32,10 @@ export function ExportGateProvider({ children }: { children: React.ReactNode }) 
     e.preventDefault();
     setBusy(true);
     setError('');
-    const session = await login(username, password);
+    const result = await verifyCredentials(username, password, 'export');
     setBusy(false);
-    if (!session || !canExport(session)) {
-      setError('Exporter account required.');
+    if (!result.ok || !canExport(getSession())) {
+      setError(result.message || 'Exporter account required.');
       return;
     }
     setOpen(false);

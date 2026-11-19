@@ -1,10 +1,10 @@
 import { useDataStore, selectData, selectLoading } from './useDataStore';
 import type { PCORecord, PCOAnalysis } from '../types';
 
-const BASE_URL = import.meta.env.BASE_URL || './';
+import { dataUrl } from '../lib/api';
 
 async function fetchJson<T>(file: string): Promise<T> {
-  const response = await fetch(`${BASE_URL}data/${file}`);
+  const response = await fetch(dataUrl(file), { credentials: 'include' });
   if (!response.ok) throw new Error(`Could not load ${file} (HTTP ${response.status})`);
   return (await response.json()) as T;
 }
