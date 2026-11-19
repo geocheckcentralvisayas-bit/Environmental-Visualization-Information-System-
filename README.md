@@ -58,6 +58,7 @@ aid, not a replacement for official records, permits or clearances.
 | ECC / CNC Ultralist | ECC OL, ECC Manual, CAT C and CNC OL records for Cebu and Bohol |
 | Legal docket | NOV, PAB, ERF and complaint records |
 | PCO Corner | Pollution Control Officer registry and analysis |
+| Ambient Corner (AQMS) | Live and historical PM2.5 / PM10 from two continuous stations, manual AQI samples and a station map; view-only |
 | Solid Waste Management (SWM) | MRF register, ECC/CNC disposal approvals, WACS analysis, current and archived annual compliance summaries, LGU contact directory and workbook reference lists — Cebu and Bohol only; view-only, with its own map and points on the Spatial Map |
 | Spatial layers | Flood, landslide, protected areas, watersheds, land cover, land classification, boundaries |
 

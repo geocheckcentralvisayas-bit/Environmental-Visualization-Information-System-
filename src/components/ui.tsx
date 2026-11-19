@@ -193,15 +193,19 @@ export function DataTable<T>({
             <tr>
               {columns.map((column) => (
                 <th key={column.key} className={column.headerClassName}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(column)}
-                    className={clsx('inline-flex items-center gap-1', column.sortValue ? 'cursor-pointer hover:text-slate-200' : 'cursor-default')}
-                  >
-                    {column.header}
-                    {sort?.key === column.key &&
-                      (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
-                  </button>
+                  {column.sortValue ? (
+                    <button
+                      type="button"
+                      onClick={() => toggle(column)}
+                      className="inline-flex cursor-pointer items-center gap-1 hover:text-slate-200"
+                    >
+                      {column.header}
+                      {sort?.key === column.key &&
+                        (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">{column.header}</span>
+                  )}
                 </th>
               ))}
             </tr>

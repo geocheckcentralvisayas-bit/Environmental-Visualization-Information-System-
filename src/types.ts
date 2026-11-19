@@ -635,7 +635,8 @@ export type PageId =
   | 'admin'
   | 'legal'
   | 'pco-corner'
-  | 'swm';
+  | 'swm'
+  | 'ambient';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';
 
@@ -1003,6 +1004,86 @@ export interface SwmWorkbook {
     } | null;
   };
   database: { available: boolean; lists: SwmReferenceList[] };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ambient air quality monitoring (AQMS)                               */
+/* ------------------------------------------------------------------ */
+
+export interface AqmsStation {
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+  sourceName: string;
+  lat: number;
+  lon: number;
+  status: string;
+}
+
+export interface AqmsReading {
+  station: string;
+  date: string;
+  hour: number;
+  timestamp: string;
+  pm25: number | null;
+  pm25Status: string;
+  pm10: number | null;
+  pm10Status: string;
+}
+
+export interface AqmsManualRecord {
+  station: string;
+  sourceStation: string;
+  category: string;
+  address: string;
+  year: number;
+  month: string;
+  date: string;
+  aqi: number;
+  legend: string;
+}
+
+export interface AqmsStationSummary {
+  readings: number;
+  avgPm25: number | null;
+  avgPm10: number | null;
+  latest: AqmsReading | null;
+}
+
+export interface AqmsDataset {
+  generatedAt: string;
+  source: {
+    name: string;
+    sheetId: string;
+    url: string;
+    tabs: string[];
+    note: string;
+  };
+  summary: {
+    stations: number;
+    continuousReadings: number;
+    manualReadings: number;
+    from: string | null;
+    to: string | null;
+    liveAt: string | null;
+    byStatus: Array<{ name: string; count: number }>;
+    byStation: Record<string, AqmsStationSummary>;
+    manualByStation: Array<{ name: string; count: number }>;
+    manualByYear: Array<{ year: number; count: number }>;
+  };
+  stations: AqmsStation[];
+  continuous: AqmsReading[];
+  manual: AqmsManualRecord[];
+}
+
+export interface AqmsLivePayload {
+  generatedAt: string;
+  source: string;
+  readings: AqmsReading[];
+  stale?: boolean;
+  cachedAt?: string;
+  warning?: string;
 }
 
 export type SwmDisposalCategory = 'landfill' | 'dumpsite' | 'transfer';

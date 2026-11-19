@@ -53,6 +53,7 @@ const ROOT_DATA_FILES = new Set([
   'pco-analysis.json',
   'ecc-ultralist.json',
   'swm.json',
+  'aqms.json',
   'geojson/layers.json',
 ]);
 
@@ -211,6 +212,117 @@ async function handleData(request: Request, env: Env, auth: AuthContext, path: s
   // applies to downloading layers, which is enforced by /api/verify and the
   // client download button.
   return new Response(object.body, { headers });
+}
+
+/* ------------------------------------------------------------------ */
+/* Near-real-time AQMS readings                                        */
+/* ------------------------------------------------------------------ */
+const AQMS_SHEET_ID = '1Fh6w15beHCAHPGJw-2nfwNryez3vwnSVCd8bsFGKvHE';
+const AQMS_LIVE_TTL_MS = 60_000;
+let aqmsLiveCache: { at: number; payload: Record<string, unknown> } | null = null;
+
+function parseAqmsCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 1; }
+        else quoted = false;
+      } else field += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ',') { row.push(field); field = ''; }
+    else if (char === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (char !== '\r') field += char;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function aqmsHour(value: string): number | null {
+  const clock = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (clock) {
+    let hour = Number(clock[1]) % 12;
+    if (clock[3].toUpperCase() === 'PM') hour += 12;
+    return hour;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 24) % 24 : null;
+}
+
+function aqmsDate(value: string): string | null {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+}
+
+function latestAqmsRows(text: string, station: string, limit: number) {
+  const rows = parseAqmsCsv(text).slice(1);
+  const readings = [];
+  for (const row of rows) {
+    const pm25Raw = (row[7] ?? '').trim();
+    const pm10Raw = (row[9] ?? '').trim();
+    if (!pm25Raw && !pm10Raw) continue; // blank cells must not become 0
+    const pm25 = pm25Raw ? Number(pm25Raw) : Number.NaN;
+    const pm10 = pm10Raw ? Number(pm10Raw) : Number.NaN;
+    if (!Number.isFinite(pm25) && !Number.isFinite(pm10)) continue;
+    const date = aqmsDate((row[4] ?? '').trim());
+    const hour = aqmsHour((row[5] ?? '').trim());
+    if (!date || hour === null) continue;
+    readings.push({
+      station,
+      date,
+      hour,
+      timestamp: `${date}T${String(hour).padStart(2, '0')}:00:00`,
+      pm25: Number.isFinite(pm25) ? pm25 : null,
+      pm25Status: (row[8] ?? '').trim(),
+      pm10: Number.isFinite(pm10) ? pm10 : null,
+      pm10Status: (row[10] ?? '').trim(),
+    });
+  }
+  return readings.slice(-limit);
+}
+
+async function handleAqmsLive(): Promise<Response> {
+  const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
+  if (aqmsLiveCache && Date.now() - aqmsLiveCache.at < AQMS_LIVE_TTL_MS) {
+    return json(aqmsLiveCache.payload, { headers });
+  }
+  try {
+    const base = `https://docs.google.com/spreadsheets/d/${AQMS_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=`;
+    const [talisay, toledo] = await Promise.all([
+      fetch(`${base}${encodeURIComponent('CITY OF TALISAY')}`),
+      fetch(`${base}${encodeURIComponent('CITY OF TOLEDO')}`),
+    ]);
+    if (!talisay.ok || !toledo.ok) throw new Error(`Google Sheets HTTP ${talisay.status}/${toledo.status}`);
+    const readings = [
+      ...latestAqmsRows(await talisay.text(), 'talisay', 72),
+      ...latestAqmsRows(await toledo.text(), 'toledo', 72),
+    ].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      source: 'AMBIENT AQMS DATASHEETS (live Google Sheet)',
+      readings,
+    };
+    aqmsLiveCache = { at: Date.now(), payload };
+    return json(payload, { headers });
+  } catch (error) {
+    if (aqmsLiveCache) {
+      return json(
+        {
+          ...aqmsLiveCache.payload,
+          stale: true,
+          cachedAt: new Date(aqmsLiveCache.at).toISOString(),
+          warning: error instanceof Error ? error.message : 'Live source unavailable',
+        },
+        { headers },
+      );
+    }
+    return fail(502, error instanceof Error ? error.message : 'Could not reach the AQMS sheet.');
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -513,6 +625,11 @@ export default {
       if (path === '/api/verify' && request.method === 'POST') {
         if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
         return withCors(await handleVerify(request, env, auth), request, env);
+      }
+
+      if (path === '/api/aqms/live' && request.method === 'GET') {
+        if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
+        return withCors(await handleAqmsLive(), request, env);
       }
 
       if (path.startsWith('/api/data/') && request.method === 'GET') {

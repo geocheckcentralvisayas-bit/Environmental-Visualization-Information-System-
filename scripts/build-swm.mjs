@@ -746,9 +746,18 @@ function readWorkbook() {
     117: 'Assistance / programme type',
   };
   const lists = [];
-  const columnCount = dbRows[0]?.length ?? 0;
-  for (let column = 0; column < columnCount; column += 1) {
-    const values = [...new Set(dbRows.map((row) => cleanText(row[column])).filter((value) => value && value.length <= 120))];
+  // Only the curated columns are real reference lists. The rest of the sheet
+  // is a validation matrix: row numbers, concatenated keys, Excel date serials
+  // and repeated header labels — none of which belong in a dashboard list.
+  const HEADER_NOISE = /^(?:.*(?:STATUS|FACILITY|CONCATENATE|DATA TYPE|PLAN|YEAR|LOCATION|ADDRESS|COORDINATES|REMARKS|ER\s*#)|PROVINCE|LGU|STATION|CATEGORY)$/i;
+  for (const [columnKey, label] of Object.entries(DB_LABELS)) {
+    const column = Number(columnKey);
+    const values = [...new Set(
+      dbRows
+        .map((row) => cleanText(row[column]))
+        .filter((value) => value && value.length <= 120)
+        .filter((value) => !/^\d+(?:\.\d+)?$/.test(value) && !HEADER_NOISE.test(value)),
+    )];
     // The province lookup is scoped like every other view in this dashboard.
     const scopedValues = column === 1
       ? values.filter((value) => ['CEBU', 'BOHOL'].includes(value.toUpperCase())).map((value) => provinceName(value))
@@ -756,7 +765,7 @@ function readWorkbook() {
     if (scopedValues.length < 2) continue;
     lists.push({
       key: `c${column}`,
-      label: DB_LABELS[column] ?? `Reference list ${column + 1}`,
+      label,
       values: scopedValues.slice(0, 200).sort((a, b) => a.localeCompare(b)),
     });
   }

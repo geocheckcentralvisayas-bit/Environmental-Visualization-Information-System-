@@ -464,6 +464,8 @@ export function PCOCorner() {
             columns={pcoColumns}
             rowKey={(pco) => pco.pco}
             initialSort={{ key: 'pco', direction: 'asc' }}
+            pageSize={25}
+            maxHeight="max-h-[620px]"
             empty={<div className="text-center py-8 text-slate-500">No PCOs match the current filters</div>}
           />
         </Panel>
@@ -475,6 +477,8 @@ export function PCOCorner() {
             rows={filteredCrossRefs}
             columns={crossRefColumns}
             rowKey={(cr) => `${cr.pco}-${cr.permitNo}-${cr.establishment}`}
+            pageSize={25}
+            maxHeight="max-h-[620px]"
             empty={<div className="text-center py-8 text-slate-500">No cross-references match the current filters</div>}
           />
         </Panel>
@@ -487,6 +491,8 @@ export function PCOCorner() {
             columns={expiringColumns}
             rowKey={(exp) => `${exp.pco}-${exp.type}-${exp.establishment}-${exp.expiryDate}`}
             initialSort={{ key: 'daysUntilExpiry', direction: 'asc' }}
+            pageSize={25}
+            maxHeight="max-h-[620px]"
             empty={<div className="text-center py-8 text-slate-500">No items expiring within 90 days</div>}
           />
         </Panel>

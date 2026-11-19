@@ -36,7 +36,6 @@ function inScope(row: { province: string; lgu: string; lguKey?: string }, provin
 export function SwmDetails({ section }: { section: Exclude<SwmSection, 'overview'> }) {
   const workbook = useDashboard((state) => state.swm?.workbook ?? null);
   const [version, setVersion] = useState<'current' | 'old'>('current');
-  const [showAllLists, setShowAllLists] = useState(false);
   const [listSearch, setListSearch] = useState('');
   const [province, setProvince] = useState('all');
   const [search, setSearch] = useState('');
@@ -320,7 +319,13 @@ export function SwmDetails({ section }: { section: Exclude<SwmSection, 'overview
       <div className="animate-fade-up space-y-4">
         {filterBar}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="LGUs in directory" value={formatNumber(contactRows.length)} hint={`of ${summary?.lgus ?? 0} in scope`} icon={<ContactRound size={17} />} accent="sky" />
+          <StatCard
+            label="Contacts in directory"
+            value={formatNumber(contactRows.length)}
+            hint="101 LGUs + 1 provincial government office"
+            icon={<ContactRound size={17} />}
+            accent="sky"
+          />
           <StatCard label="Mayor with contact" value={formatNumber(summary?.withMayor ?? 0)} hint="LGUs with a mayor contact number" icon={<Phone size={17} />} accent="emerald" />
           <StatCard label="Vice mayor with contact" value={formatNumber(summary?.withViceMayor ?? 0)} hint="LGUs with a vice mayor contact number" icon={<Users size={17} />} accent="violet" />
           <StatCard label="SWM focal with contact" value={formatNumber(summary?.withFocal ?? 0)} hint="LGUs with a focal contact number" icon={<Mail size={17} />} accent="amber" />
@@ -340,8 +345,6 @@ export function SwmDetails({ section }: { section: Exclude<SwmSection, 'overview
   /* Reference database                                                */
   /* ---------------------------------------------------------------- */
   const lists = workbook.database.lists.filter((list) => {
-    const curated = !/^Reference list \d+$/.test(list.label);
-    if (!showAllLists && !curated) return false;
     if (!listSearch.trim()) return true;
     const query = listSearch.trim().toLowerCase();
     return list.label.toLowerCase().includes(query) || list.values.some((value) => value.toLowerCase().includes(query));
@@ -353,11 +356,7 @@ export function SwmDetails({ section }: { section: Exclude<SwmSection, 'overview
       <Panel
         title="SWM reference database"
         subtitle="Lookup lists and controlled values from the Database tab of the SWM Overall Database workbook."
-        action={
-          <button type="button" className="btn btn-ghost h-7 px-2 text-[10px]" onClick={() => setShowAllLists((value) => !value)}>
-            {showAllLists ? 'Show key lists' : `Show all ${workbook.database.lists.length} lists`}
-          </button>
-        }
+        action={<Chip tone="slate">{workbook.database.lists.length} lists</Chip>}
         bodyClassName="p-4"
       >
         <input
