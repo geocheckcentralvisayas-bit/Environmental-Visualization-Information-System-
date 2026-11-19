@@ -15,6 +15,16 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
     credentials: 'include',
     ...init,
     headers,
+  }).then((response) => {
+    // A 401 from a protected read means the cookie expired or was revoked.
+    // Login/verify 401s are ordinary credential failures and must not sign out
+    // the dashboard, so only these paths trigger the event.
+    const protectedRead =
+      path.startsWith('/data/') || path.startsWith('/admin/');
+    if (response.status === 401 && protectedRead && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('envis:unauthorized'));
+    }
+    return response;
   });
 }
 

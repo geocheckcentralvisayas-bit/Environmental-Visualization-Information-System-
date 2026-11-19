@@ -120,14 +120,6 @@ export function canManageAccounts(session: Session | null): boolean {
   return session?.role === 'mis';
 }
 
-export async function logActivity(type: 'export' | 'geojson', detail: string): Promise<void> {
-  try {
-    await apiFetch('/activity', { method: 'POST', body: JSON.stringify({ type, detail }) });
-  } catch {
-    /* logging must never block the user action */
-  }
-}
-
 /* ------------------------------------------------------------------ */
 /* admin                                                               */
 /* ------------------------------------------------------------------ */

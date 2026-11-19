@@ -100,6 +100,15 @@ useEffect(() => {
   };
 
   useEffect(() => {
+    const onUnauthorized = () => {
+      setBooting(false);
+      setSession(null);
+    };
+    window.addEventListener('envis:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('envis:unauthorized', onUnauthorized);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     // The session lives in an HttpOnly cookie, so the browser cannot read it.
     // Ask the API once on boot and only load data after we know who is signed in.

@@ -25,6 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Forbid tracked secret files
+        run: |
+          if git ls-files | grep -E '(^|/)(CREDENTIALS\.md|\.dev\.vars|\.env)$|(^|/)worker/\.local/'; then
+            echo "::error::A secret-bearing file is tracked in git (CREDENTIALS.md, .dev.vars, .env or worker/.local)."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:

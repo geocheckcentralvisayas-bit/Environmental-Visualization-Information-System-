@@ -199,6 +199,7 @@ The dashboard front end and the API run as two processes in development:
 
 ```bash
 npm install
+cp worker/.dev.vars.example worker/.dev.vars   # local CORS origins
 npm run api:db          # apply D1 migrations locally
 npm run api:seed        # build hashed accounts from CREDENTIALS.md
 npm run api:seed:apply  # load the hashes into local D1
@@ -206,6 +207,10 @@ npm run api:upload      # copy public/data into local R2
 npm run api:dev         # Worker API on http://localhost:8787
 npm run dev             # Vite on http://localhost:5173 (proxies /api)
 ```
+
+`worker/.dev.vars` is git-ignored. Production `ALLOWED_ORIGINS` in
+`worker/wrangler.toml` lists only the Pages origin; localhost is never allowed
+on the deployed Worker.
 
 `CREDENTIALS.md` is git-ignored and is the only place plaintext passwords exist.
 `npm run api:seed` writes a git-ignored SQL file with PBKDF2 hashes; it never
@@ -241,17 +246,27 @@ Actions runs and releases.
   the published bundle. Built-in accounts are seeded with opaque keys and salted
   PBKDF2-SHA256 password hashes held only in D1.
 - The session lives in an `HttpOnly`, `Secure`, `SameSite=None` cookie; the
-  browser never reads it and no token is written to local storage.
+  browser never reads it and no token is written to local storage. Account data
+  written by the pre-API build is deleted on first load.
+- State-changing API calls require an allowed `Origin`, so a hostile site cannot
+  ride the `SameSite=None` cookie (CSRF).
+- Unknown usernames pay the same PBKDF2 cost as real ones, preventing timing-based
+  username enumeration.
 - Every dataset request goes through the Worker. Anonymous requests to
   `/api/data/*` return **401**, and raw JSON is no longer published as a static
-  file.
+  file. Authenticated responses are `no-store` and are not kept in the browser
+  cache.
 - Login throttling locks an IP/username pair after repeated failures, and
   privileged actions require re-authentication.
+- Role changes, deactivation, deletion and password resets revoke existing
+  sessions for that account.
 - Source maps are disabled in production, so the shipped bundle does not expose
-  application source files.
+  application source files. A build with `VITE_API_BASE` also removes `dist/data`.
 - CSV/JSON exports and GeoJSON downloads are gated behind role-based login and
-  recorded in the shared audit log.
+  recorded server-side in the shared audit log.
 - CSV export is hardened against formula injection.
+- The deploy workflow fails if `CREDENTIALS.md`, `.dev.vars`, `.env` or
+  `worker/.local` is ever tracked in git.
 - The error boundary renders a generic message; no stack traces reach end users.
 
 ## About the author

@@ -1,5 +1,6 @@
 import {
   assertLoginAllowed,
+  burnPasswordCheck,
   canExport,
   clearLoginFailures,
   clearSessionCookie,
@@ -14,10 +15,28 @@ import {
   sessionCookie,
   verifyPassword,
 } from './auth';
-import { clientIp, fail, json, readJson, withCors } from './http';
+import { clientIp, fail, isOriginAllowed, json, readJson, withCors } from './http';
 import type { AccountRow, AuthContext, Env, Role } from './types';
 
 const ROLES: Role[] = ['extraction', 'rd', 'emed', 'cpd', 'mis', 'viewer', 'gis'];
+
+const MAX_USERNAME_LENGTH = 64;
+const MAX_PASSWORD_LENGTH = 128;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_LABEL_LENGTH = 120;
+const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/;
+
+function validPassword(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= MIN_PASSWORD_LENGTH && value.length <= MAX_PASSWORD_LENGTH;
+}
+
+function validPasswordHash(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const match = value.match(/^pbkdf2\$(\d+)\$[0-9a-f]{32}\$[0-9a-f]{64}$/i);
+  if (!match) return false;
+  const iterations = Number(match[1]);
+  return iterations >= 1_000 && iterations <= 1_000_000;
+}
 
 const ROOT_DATA_FILES = new Set([
   'meta.json',
@@ -52,10 +71,15 @@ function publicAccount(account: AccountRow) {
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const body = await readJson<{ username?: string; password?: string }>(request);
-  if (!body?.username || !body?.password) return fail(400, 'Username and password are required.');
-
+  const body = await readJson<{ username?: unknown; password?: unknown }>(request);
+  if (typeof body?.username !== 'string' || typeof body?.password !== 'string') {
+    return fail(400, 'Username and password are required.');
+  }
   const username = normalizeUsername(body.username);
+  if (!username || username.length > MAX_USERNAME_LENGTH || body.password.length > MAX_PASSWORD_LENGTH) {
+    return fail(400, 'Username and password are required.');
+  }
+
   const ip = clientIp(request);
   const buckets = [`ip:${ip}`, `user:${username}`];
 
@@ -73,7 +97,13 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     .bind(username)
     .first<AccountRow>();
 
-  const ok = account && account.active ? await verifyPassword(body.password, account.password_hash) : false;
+  let ok = false;
+  if (account && account.active) {
+    ok = await verifyPassword(body.password, account.password_hash);
+  } else {
+    // Equalise timing so unknown/inactive usernames cannot be enumerated.
+    await burnPasswordCheck(body.password);
+  }
   if (!account || !ok) {
     for (const bucket of buckets) await registerLoginFailure(env, bucket);
     await logActivity(
@@ -110,11 +140,16 @@ async function handleLogout(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleVerify(request: Request, env: Env, auth: AuthContext): Promise<Response> {
-  const body = await readJson<{ username?: string; password?: string; purpose?: string }>(request);
-  if (!body?.username || !body?.password) return fail(400, 'Username and password are required.');
+  const body = await readJson<{ username?: unknown; password?: unknown; purpose?: unknown }>(request);
+  if (typeof body?.username !== 'string' || typeof body?.password !== 'string') {
+    return fail(400, 'Username and password are required.');
+  }
+  const username = normalizeUsername(body.username);
+  if (!username || username.length > MAX_USERNAME_LENGTH || body.password.length > MAX_PASSWORD_LENGTH) {
+    return fail(400, 'Username and password are required.');
+  }
 
   const purpose = body.purpose === 'geojson' ? 'geojson' : 'export';
-  const username = normalizeUsername(body.username);
   const bucket = `verify:${clientIp(request)}:${username}`;
   const retryAfter = await assertLoginAllowed(env, bucket);
   if (retryAfter > 0) {
@@ -125,7 +160,12 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
     .bind(username)
     .first<AccountRow>();
 
-  const ok = account && account.active ? await verifyPassword(body.password, account.password_hash) : false;
+  let ok = false;
+  if (account && account.active) {
+    ok = await verifyPassword(body.password, account.password_hash);
+  } else {
+    await burnPasswordCheck(body.password);
+  }
   if (!account || !ok) {
     await registerLoginFailure(env, bucket);
     await logActivity(env, 'login-failed', `Failed ${purpose} re-authentication`, account?.username ?? 'unknown', account?.role ?? 'unknown');
@@ -150,14 +190,6 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
   return json({ ok: true, role: account.role, displayName: account.display_name });
 }
 
-async function handleActivity(request: Request, env: Env, auth: AuthContext): Promise<Response> {
-  const body = await readJson<{ type?: string; detail?: string }>(request);
-  const type = body?.type === 'geojson' ? 'geojson' : body?.type === 'export' ? 'export' : null;
-  if (!type) return fail(400, 'Unsupported activity type.');
-  await logActivity(env, type, body?.detail || `${type} action`, auth.session.username, auth.session.role);
-  return json({ ok: true });
-}
-
 async function handleData(request: Request, env: Env, auth: AuthContext, path: string): Promise<Response> {
   if (!isAllowedDataPath(path)) return fail(404, 'Not found.');
   const object = await env.DATA.get(`data/${path}`);
@@ -165,7 +197,9 @@ async function handleData(request: Request, env: Env, auth: AuthContext, path: s
 
   const headers = new Headers();
   headers.set('Content-Type', object.httpMetadata?.contentType ?? 'application/json; charset=utf-8');
-  headers.set('Cache-Control', 'private, max-age=60');
+  // Authenticated data must not remain readable from the browser cache after
+  // sign-out or on a shared machine.
+  headers.set('Cache-Control', 'no-store');
   headers.set('X-Content-Type-Options', 'nosniff');
   if (object.httpEtag) headers.set('ETag', object.httpEtag);
 
@@ -197,12 +231,21 @@ async function handleAdminAccounts(request: Request, env: Env, auth: AuthContext
   }
   if (request.method !== 'POST') return fail(405, 'Method not allowed.');
 
-  const body = await readJson<{ username?: string; displayName?: string; division?: string; role?: string; password?: string }>(request);
-  if (!body?.username?.trim()) return fail(400, 'Username is required.');
-  if (!body.password || body.password.length < 8) return fail(400, 'Password must be at least 8 characters.');
-  if (!body.role || !ROLES.includes(body.role as Role)) return fail(400, 'Invalid role.');
-
+  const body = await readJson<{ username?: unknown; displayName?: unknown; division?: unknown; role?: unknown; password?: unknown }>(request);
+  if (typeof body?.username !== 'string') return fail(400, 'Username is required.');
   const username = normalizeUsername(body.username);
+  if (!USERNAME_PATTERN.test(username)) {
+    return fail(400, 'Username must be 3–64 characters using letters, numbers, dots, dashes or underscores.');
+  }
+  if (!validPassword(body.password)) return fail(400, 'Password must be 8–128 characters.');
+  if (typeof body.role !== 'string' || !ROLES.includes(body.role as Role)) return fail(400, 'Invalid role.');
+
+  const displayName = (typeof body.displayName === 'string' ? body.displayName.trim() : '') || username;
+  const division = (typeof body.division === 'string' ? body.division.trim() : '') || '—';
+  if (displayName.length > MAX_LABEL_LENGTH || division.length > MAX_LABEL_LENGTH) {
+    return fail(400, 'Display name and division must be 120 characters or fewer.');
+  }
+
   const existing = await env.DB.prepare('SELECT id FROM accounts WHERE lower(username) = ?').bind(username).first<{ id: number }>();
   if (existing) return fail(409, 'That username already exists.');
 
@@ -213,8 +256,8 @@ async function handleAdminAccounts(request: Request, env: Env, auth: AuthContext
   )
     .bind(
       username,
-      (body.displayName || body.username).trim(),
-      (body.division || '—').trim(),
+      displayName,
+      division,
       body.role,
       await hashPassword(body.password),
       now,
@@ -222,7 +265,7 @@ async function handleAdminAccounts(request: Request, env: Env, auth: AuthContext
     )
     .run();
 
-  await logActivity(env, 'account-add', `${auth.session.displayName} added account ${body.username}`, auth.session.username, auth.session.role);
+  await logActivity(env, 'account-add', `${auth.session.displayName} added account ${username}`, auth.session.username, auth.session.role);
   return json({ ok: true }, { status: 201 });
 }
 
@@ -235,17 +278,29 @@ async function handleAdminAccount(request: Request, env: Env, auth: AuthContext,
     if (account.role === 'mis' && (await countActiveMis(env, account.id)) === 0) {
       return fail(400, 'You cannot delete the last MIS account.');
     }
-    await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(account.id).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM sessions WHERE account_id = ?').bind(account.id),
+      env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(account.id),
+    ]);
     await logActivity(env, 'account-delete', `${auth.session.displayName} deleted account ${account.display_name}`, auth.session.username, auth.session.role);
     return json({ ok: true });
   }
 
   if (request.method !== 'PATCH') return fail(405, 'Method not allowed.');
-  const body = await readJson<{ displayName?: string; division?: string; role?: string; active?: boolean }>(request);
+  const body = await readJson<{ displayName?: unknown; division?: unknown; role?: unknown; active?: unknown }>(request);
   if (!body) return fail(400, 'Invalid request.');
 
-  const nextRole = body.role && ROLES.includes(body.role as Role) ? (body.role as Role) : account.role;
+  const nextRole = typeof body.role === 'string' && ROLES.includes(body.role as Role) ? (body.role as Role) : account.role;
   const nextActive = typeof body.active === 'boolean' ? (body.active ? 1 : 0) : account.active;
+  const nextDisplay = typeof body.displayName === 'string' && body.displayName.trim()
+    ? body.displayName.trim()
+    : account.display_name;
+  const nextDivision = typeof body.division === 'string' && body.division.trim()
+    ? body.division.trim()
+    : account.division;
+  if (nextDisplay.length > MAX_LABEL_LENGTH || nextDivision.length > MAX_LABEL_LENGTH) {
+    return fail(400, 'Display name and division must be 120 characters or fewer.');
+  }
 
   if (account.id === auth.account.id && (!nextActive || nextRole !== 'mis')) {
     return fail(400, 'You cannot deactivate or demote the account you are signed in with.');
@@ -258,14 +313,20 @@ async function handleAdminAccount(request: Request, env: Env, auth: AuthContext,
     'UPDATE accounts SET display_name = ?, division = ?, role = ?, active = ?, updated_at = ? WHERE id = ?',
   )
     .bind(
-      (body.displayName ?? account.display_name).trim() || account.display_name,
-      (body.division ?? account.division).trim() || account.division,
+      nextDisplay,
+      nextDivision,
       nextRole,
       nextActive,
       Date.now(),
       account.id,
     )
     .run();
+
+  // A role change or deactivation must invalidate existing sessions, not just
+  // apply the new role on the next request.
+  if (!nextActive || nextRole !== account.role) {
+    await env.DB.prepare('DELETE FROM sessions WHERE account_id = ?').bind(account.id).run();
+  }
 
   if (nextRole !== account.role) {
     await logActivity(env, 'role-change', `${auth.session.displayName} changed ${account.display_name} from ${account.role} to ${nextRole}`, auth.session.username, auth.session.role);
@@ -288,6 +349,7 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
   const byName = new Map(existing.map((account) => [account.username.toLowerCase(), account]));
   const nextState = new Map(existing.map((account) => [account.username.toLowerCase(), { role: account.role, active: Boolean(account.active) }]));
   const statements: D1PreparedStatement[] = [];
+  const revoke = new Set<number>();
   const now = Date.now();
   let added = 0;
   let updated = 0;
@@ -296,18 +358,20 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
   for (const raw of body.accounts) {
     const record = (raw ?? {}) as Record<string, unknown>;
     const username = typeof record.username === 'string' ? normalizeUsername(record.username) : '';
-    if (!/^[a-z0-9._-]{3,64}$/.test(username)) { skipped += 1; continue; }
+    if (!USERNAME_PATTERN.test(username)) { skipped += 1; continue; }
     const role = typeof record.role === 'string' && ROLES.includes(record.role as Role) ? (record.role as Role) : null;
     if (!role) { skipped += 1; continue; }
 
     const displayName = typeof record.displayName === 'string' ? record.displayName.trim() : '';
     const division = typeof record.division === 'string' ? record.division.trim() : '';
-    const active = record.active === undefined ? true : Boolean(record.active);
+    if (displayName.length > MAX_LABEL_LENGTH || division.length > MAX_LABEL_LENGTH) { skipped += 1; continue; }
+    if (record.active !== undefined && typeof record.active !== 'boolean') { skipped += 1; continue; }
+    const active = record.active === undefined ? true : record.active;
 
     let passwordHash = '';
-    if (typeof record.passwordHash === 'string' && /^pbkdf2\$\d+\$[0-9a-f]{32}\$[0-9a-f]{64}$/i.test(record.passwordHash)) {
+    if (validPasswordHash(record.passwordHash)) {
       passwordHash = record.passwordHash;
-    } else if (typeof record.password === 'string' && record.password.length >= 8) {
+    } else if (validPassword(record.password)) {
       passwordHash = await hashPassword(record.password);
     }
 
@@ -317,6 +381,7 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
     nextState.set(username, { role, active });
 
     if (current) {
+      if (passwordHash || role !== current.role || Boolean(current.active) !== active) revoke.add(current.id);
       statements.push(
         env.DB.prepare(
           'UPDATE accounts SET display_name = ?, division = ?, role = ?, active = ?, password_hash = ?, updated_at = ? WHERE id = ?',
@@ -346,6 +411,16 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
   if (activeMis === 0) return fail(400, 'That import would leave no active MIS account.');
 
   if (statements.length) await env.DB.batch(statements);
+
+  // Imported password/role/status changes revoke those accounts' sessions.
+  const revokeIds = [...revoke];
+  for (let index = 0; index < revokeIds.length; index += 100) {
+    const chunk = revokeIds.slice(index, index + 100);
+    await env.DB.prepare(
+      `DELETE FROM sessions WHERE account_id IN (${chunk.map(() => '?').join(',')})`,
+    ).bind(...chunk).run();
+  }
+
   await logActivity(
     env,
     'account-update',
@@ -358,8 +433,8 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
 
 async function handleAdminPassword(request: Request, env: Env, auth: AuthContext, username: string): Promise<Response> {
   if (request.method !== 'POST') return fail(405, 'Method not allowed.');
-  const body = await readJson<{ password?: string }>(request);
-  if (!body?.password || body.password.length < 8) return fail(400, 'Password must be at least 8 characters.');
+  const body = await readJson<{ password?: unknown }>(request);
+  if (!validPassword(body?.password)) return fail(400, 'Password must be 8–128 characters.');
 
   const account = await env.DB.prepare('SELECT * FROM accounts WHERE lower(username) = ?').bind(normalizeUsername(username)).first<AccountRow>();
   if (!account) return fail(404, 'Account not found.');
@@ -407,6 +482,13 @@ export default {
       return withCors(new Response(null, { status: 204 }), request, env);
     }
 
+    // Cookies are SameSite=None so the Pages UI can call the API. Reject
+    // state-changing requests that carry an Origin we do not trust (CSRF).
+    const method = request.method.toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && !isOriginAllowed(request, env)) {
+      return withCors(fail(403, 'Origin not allowed.'), request, env);
+    }
+
     try {
       if (path === '/api/health') {
         return withCors(json({ ok: true, service: 'envis-region-vii-api' }), request, env);
@@ -427,10 +509,6 @@ export default {
       if (path === '/api/verify' && request.method === 'POST') {
         if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
         return withCors(await handleVerify(request, env, auth), request, env);
-      }
-      if (path === '/api/activity' && request.method === 'POST') {
-        if (!auth) return withCors(fail(401, 'Not signed in.'), request, env);
-        return withCors(await handleActivity(request, env, auth), request, env);
       }
 
       if (path.startsWith('/api/data/') && request.method === 'GET') {

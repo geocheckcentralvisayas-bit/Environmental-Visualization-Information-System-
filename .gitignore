@@ -11,6 +11,7 @@ worker/.local/
 worker/.wrangler/
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 
 # Source spatial data (shapefiles) — provided separately, not published
 spatial-src/

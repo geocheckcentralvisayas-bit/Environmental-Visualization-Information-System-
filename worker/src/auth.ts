@@ -30,7 +30,7 @@ export async function sha256Hex(text: string): Promise<string> {
 }
 
 export function normalizeUsername(value: string): string {
-  return value.trim().toLowerCase();
+  return value.normalize('NFKC').replace(/[\u0000-\u001f\u007f]/g, '').trim().toLowerCase();
 }
 
 /* ------------------------------------------------------------------ */
@@ -63,7 +63,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (!stored.startsWith('pbkdf2$')) return false;
   const [, iterationsText, salt, expected] = stored.split('$');
   const iterations = Number(iterationsText);
-  if (!Number.isFinite(iterations) || iterations < 1_000 || !salt || !expected) return false;
+  if (!Number.isFinite(iterations) || iterations < 1_000 || iterations > 1_000_000 || !salt || !expected) return false;
   const actual = await derivePassword(password, salt, iterations);
   if (actual.length !== expected.length) return false;
   let diff = 0;
@@ -71,6 +71,21 @@ export async function verifyPassword(password: string, stored: string): Promise<
     diff |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
   }
   return diff === 0;
+}
+
+/**
+ * Spend the same PBKDF2 cost for unknown or inactive accounts. Without this,
+ * response time would reveal whether a username exists.
+ */
+const DUMMY_PASSWORD_HASH =
+  'pbkdf2$210000$f5038cd53467b405906aac273c7b4292$dec84416d13571af829fbdeca517225fc6c21fa57367892e488cffea15f0b1e8';
+
+export async function burnPasswordCheck(password: string): Promise<void> {
+  try {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+  } catch {
+    /* verification failures are intentionally ignored */
+  }
 }
 
 /**
@@ -231,7 +246,13 @@ export async function logActivity(
   role: Role | 'unknown' = 'unknown',
 ): Promise<void> {
   await env.DB.prepare('INSERT INTO activity (at, type, username, role, detail) VALUES (?, ?, ?, ?, ?)')
-    .bind(Date.now(), type, username, role, detail.slice(0, 500))
+    .bind(
+      Date.now(),
+      type,
+      username.slice(0, 64),
+      role,
+      detail.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 500),
+    )
     .run();
   // Trim occasionally so the table cannot grow without bound.
   if (Math.random() < 0.02) {

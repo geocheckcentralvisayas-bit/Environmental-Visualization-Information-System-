@@ -4,12 +4,15 @@ compatibility_date = "2026-11-01"
 workers_dev = true
 
 # The dashboard UI is served from GitHub Pages; cookies are cross-site, so the
-# Worker must answer CORS for those origins and the session cookie is
+# Worker must answer CORS for that origin and the session cookie is
 # SameSite=None; Secure.
+#
+# Local development origins belong in worker/.dev.vars (git-ignored), which
+# overrides this value only under `wrangler dev`. Do not add localhost here.
 [vars]
 SESSION_TTL_HOURS = "8"
 COOKIE_NAME = "envis_sid"
-ALLOWED_ORIGINS = "https://geocheckcentralvisayas-bit.github.io,http://localhost:5173,http://localhost:4173,http://localhost:4181"
+ALLOWED_ORIGINS = "https://geocheckcentralvisayas-bit.github.io"
 
 # Local development uses a placeholder id; replace both values with the ids
 # printed by `wrangler d1 create` / `wrangler r2 bucket create` before deploy.

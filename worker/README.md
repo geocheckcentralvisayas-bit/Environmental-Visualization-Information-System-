@@ -18,7 +18,6 @@ Browser ──cookie──► Worker ──► D1   (accounts, sessions, activit
 | `POST` | `/api/logout` | any session |
 | `GET` | `/api/session` | any session |
 | `POST` | `/api/verify` | session + password re-check; `purpose=export\|geojson` |
-| `POST` | `/api/activity` | session |
 | `GET` | `/api/data/:file` | any signed-in role |
 | `GET/POST` | `/api/admin/accounts` | MIS |
 | `PATCH/DELETE` | `/api/admin/accounts/:username` | MIS |
@@ -34,12 +33,17 @@ Data paths are allow-listed: the known root JSON files plus
 Run from the repository root:
 
 ```bash
+cp worker/.dev.vars.example worker/.dev.vars
 npm run api:db
 npm run api:seed
 npm run api:seed:apply
 npm run api:upload
 npm run api:dev
 ```
+
+`worker/.dev.vars` is git-ignored and overrides `ALLOWED_ORIGINS` for local
+development only. The committed `worker/wrangler.toml` value lists just the
+Pages origin, so a deployed Worker will not accept requests from localhost.
 
 The Worker listens on `http://localhost:8787`; Vite proxies `/api` to it. Local
 state is stored under `worker/.wrangler` (git-ignored). Delete that folder and
@@ -99,8 +103,9 @@ and the target Pages origin in `ALLOWED_ORIGINS`.
 
 After the Worker is live and the Pages site is built with `VITE_API_BASE`:
 
-- remove `public/data` from the published bundle so raw JSON is no longer
-  downloadable from the static host;
+- `VITE_API_BASE=https://<worker-host>/api npm run build` also removes
+  `dist/data`, so the Pages artifact never contains the JSON even if `public/data`
+  is still present in the repository.
 - keep `public/data` in the repository only as the pipeline output that
   `npm run api:upload` copies into private R2;
 - confirm `/data/permits.json` on the Pages host returns 404 while
@@ -111,7 +116,20 @@ After the Worker is live and the Pages site is built with `VITE_API_BASE`:
 - Sessions last `SESSION_TTL_HOURS` (8). Passwords are PBKDF2-SHA256 with 210,000
   iterations; lower that only if the Workers CPU limit is exceeded on the free
   plan.
+- State-changing requests from an `Origin` outside `ALLOWED_ORIGINS` are rejected
+  with **403**, which covers the `SameSite=None` cookie needed for Pages.
+- Unknown usernames still pay the PBKDF2 cost, so response timing does not reveal
+  whether an account exists.
+- Dataset responses use `Cache-Control: no-store`, so authenticated JSON is not
+  left in the browser cache after sign-out.
+- Role changes, deactivation, deletion and password resets revoke that account's
+  sessions immediately.
+- Responses carry HSTS, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a restrictive
+  `Permissions-Policy`.
 - Activity is trimmed to the most recent 2,000 rows on a sampled basis.
+- The client cannot write audit entries; exports and GeoJSON downloads are logged
+  server-side by `/api/verify`.
 - Cookies are `HttpOnly; Secure; SameSite=None` because the UI and API are on
   different origins. HTTPS is required in production.
 - Rotate a built-in password by updating `CREDENTIALS.md`, re-running the seed

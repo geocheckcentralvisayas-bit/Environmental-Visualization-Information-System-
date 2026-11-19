@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -30,6 +30,10 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org",
   `connect-src ${connectSources}`,
+  "frame-src 'none'",
+  "media-src 'none'",
+  "worker-src 'none'",
+  "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -52,8 +56,24 @@ function contentSecurityPolicy() {
   };
 }
 
+/**
+ * Once the dashboard talks to the API, the compiled JSON must not be copied to
+ * the static deployment. Removing `dist/data` at close time keeps the pipeline
+ * output in `public/data` (for `npm run api:upload`) without publishing it.
+ */
+function stripStaticData() {
+  return {
+    name: 'strip-static-data',
+    apply: 'build' as const,
+    closeBundle() {
+      if (!apiBase) return;
+      rmSync(new URL('./dist/data', import.meta.url), { recursive: true, force: true });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), contentSecurityPolicy()],
+  plugins: [react(), contentSecurityPolicy(), stripStaticData()],
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
