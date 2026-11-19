@@ -28,6 +28,11 @@ export interface Session {
   displayName: string;
   division: string;
   at: number;
+  /**
+   * Fingerprint of the account's password hash at sign-in. Stored so a password
+   * reset or role change invalidates any session that was issued earlier.
+   */
+  ph?: string;
 }
 
 export type ActivityType =
@@ -345,6 +350,7 @@ export async function login(username: string, password: string): Promise<Session
     displayName: account.displayName,
     division: account.division,
     at: Date.now(),
+    ph: account.passwordHash.slice(0, 24),
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   logActivity('login', `${account.displayName} signed in`, account.username, account.role);
@@ -360,12 +366,10 @@ export function getSession(): Session | null {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
-    // Regional Director sessions never expire.
-    if (session.role !== 'rd') {
-      if (Date.now() - session.at > SESSION_TTL_MS) {
-        localStorage.removeItem(SESSION_KEY);
-        return null;
-      }
+    // Every role — including the Regional Director — expires after the TTL.
+    if (Date.now() - session.at > SESSION_TTL_MS) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
     }
     // Invalidate sessions whose account was deactivated or deleted.
     const account = getAccounts().find((entry) => entry.username.toLowerCase() === session.username.toLowerCase());
@@ -373,7 +377,30 @@ export function getSession(): Session | null {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
-    return session;
+    // Invalidate sessions issued before a password reset.
+    const fingerprint = account.passwordHash.slice(0, 24);
+    if (session.ph && session.ph !== fingerprint) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    // Never trust role/profile fields from localStorage: re-read them from the
+    // account registry so a tampered session cannot escalate privileges.
+    const hardened: Session = {
+      ...session,
+      role: account.role,
+      displayName: account.displayName,
+      division: account.division,
+      ph: fingerprint,
+    };
+    if (
+      hardened.role !== session.role ||
+      hardened.displayName !== session.displayName ||
+      hardened.division !== session.division ||
+      session.ph !== fingerprint
+    ) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(hardened));
+    }
+    return hardened;
   } catch {
     localStorage.removeItem(SESSION_KEY);
     return null;
