@@ -43,7 +43,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org",
   `connect-src ${connectSources}`,
-  "frame-src 'none'",
+  "frame-src 'self'",
   "media-src 'none'",
   "worker-src 'none'",
   "manifest-src 'self'",
@@ -79,7 +79,11 @@ function stripStaticData() {
     name: 'strip-static-data',
     apply: 'build' as const,
     closeBundle() {
-      if (!apiBase) return;
+      if (!apiOrigin) {
+        // Published builds must not ship the authenticated dataset as static files.
+        if (process.env.CI) throw new Error('VITE_API_BASE (absolute Worker URL) is required in CI');
+        return;
+      }
       rmSync(new URL('./dist/data', import.meta.url), { recursive: true, force: true });
     },
   };

@@ -155,6 +155,8 @@ export function ClearancesPage() {
           <MapButton lat={row.lat} lon={row.lon} label={`${row.company} · ${row.number}`} siteId={row.siteId} />
           <button
             type="button"
+            disabled={!row.siteId}
+            title={row.siteId ? 'Open establishment details' : 'No matched establishment'}
             className="btn btn-xs whitespace-nowrap"
             onClick={(event) => {
               event.stopPropagation();

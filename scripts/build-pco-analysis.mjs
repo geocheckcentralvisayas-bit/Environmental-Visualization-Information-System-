@@ -1,6 +1,6 @@
 /**
  * Build PCO Analysis - Cross-reference PCO database with permits, HW, clearances
- * Output: data/pco-analysis.json
+ * Output: public/data/pco-analysis.json
  */
 import fs from 'fs';
 import path from 'path';
@@ -341,8 +341,9 @@ function buildPCOAnalysis() {
     throw new Error('PCO Analysis validation failed');
   }
 
-  fs.writeFileSync('data/pco-analysis.json', JSON.stringify(result.data, null, 2));
-  console.log('Written to data/pco-analysis.json');
+  fs.mkdirSync('public/data', { recursive: true });
+  fs.writeFileSync('public/data/pco-analysis.json', JSON.stringify(result.data, null, 2));
+  console.log('Written to public/data/pco-analysis.json');
   console.log(`Summary: ${byPCO.length} PCOs, ${crossReferences.length} cross-references, ${unmatchedPCOs.length} unmatched, ${expiringSoon.length} expiring soon`);
 }
 

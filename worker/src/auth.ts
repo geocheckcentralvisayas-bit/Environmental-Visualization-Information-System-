@@ -118,19 +118,23 @@ export function parseCookies(header: string | null): Record<string, string> {
   return out;
 }
 
+function cookieFlags(env: Env): string {
+  const sameSite = env.COOKIE_SAME_SITE || 'None';
+  const secure = (env.COOKIE_SECURE ?? 'true') === 'true' ? '; Secure' : '';
+  return `HttpOnly${secure}; SameSite=${sameSite}`;
+}
+
 export function sessionCookie(env: Env, token: string, maxAgeSeconds: number): string {
   return [
     `${env.COOKIE_NAME}=${token}`,
-    'HttpOnly',
-    'Secure',
-    'SameSite=None',
+    cookieFlags(env),
     'Path=/',
     `Max-Age=${maxAgeSeconds}`,
   ].join('; ');
 }
 
 export function clearSessionCookie(env: Env): string {
-  return `${env.COOKIE_NAME}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+  return `${env.COOKIE_NAME}=; ${cookieFlags(env)}; Path=/; Max-Age=0`;
 }
 
 function sessionTtlMs(env: Env): number {
@@ -216,6 +220,18 @@ export async function getAuth(request: Request, env: Env): Promise<AuthContext |
 
 export async function destroySession(env: Env, tokenHash: string): Promise<void> {
   await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(tokenHash).run();
+}
+
+/** Pixel Office access is tied to the existing session and is never re-armed by a read. */
+export async function pixelSessionExpiry(env: Env, tokenHash: string): Promise<number | null> {
+  const row = await env.DB.prepare('SELECT pixel_expires_at FROM sessions WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first<{ pixel_expires_at: number | null }>();
+  return row?.pixel_expires_at ?? null;
+}
+
+export async function extendPixelSession(env: Env, tokenHash: string, expiresAt: number): Promise<void> {
+  await env.DB.prepare('UPDATE sessions SET pixel_expires_at = ? WHERE token_hash = ?').bind(expiresAt, tokenHash).run();
 }
 
 /* ------------------------------------------------------------------ */

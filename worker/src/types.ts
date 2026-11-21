@@ -4,6 +4,8 @@ export interface Env {
   SESSION_TTL_HOURS: string;
   COOKIE_NAME: string;
   ALLOWED_ORIGINS: string;
+  COOKIE_SAME_SITE?: string;
+  COOKIE_SECURE?: string;
 }
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';

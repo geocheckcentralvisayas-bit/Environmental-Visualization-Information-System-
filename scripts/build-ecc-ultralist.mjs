@@ -749,9 +749,7 @@ async function main() {
     try {
       text = await readFile(path.join(RAW_DIR, `${tab.key}.csv`), 'utf8');
     } catch {
-      console.error(`  ✗ ${tab.key}: run "npm run data:fetch" first (missing ${RAW_DIR}/${tab.key}.csv)`);
-      process.exitCode = 1;
-      continue;
+      throw new Error(`${tab.key}: run "npm run data:fetch" first (missing ${RAW_DIR}/${tab.key}.csv)`);
     }
     const result = readSource(tab, text, lguLookup);
     collected.push(...result.rows);

@@ -1,3 +1,5 @@
 # Copy this file to worker/.dev.vars before running `npm run api:dev`.
 # `.dev.vars` is git-ignored and must never be committed.
 ALLOWED_ORIGINS = "https://geocheckcentralvisayas-bit.github.io,http://localhost:5173,http://localhost:4173,http://localhost:4181"
+COOKIE_SAME_SITE = "Lax"
+COOKIE_SECURE = "false"

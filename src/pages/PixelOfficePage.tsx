@@ -25,7 +25,7 @@ export function PixelOfficePage() {
   const requestSession = useCallback(async () => {
     setError(null);
     try {
-      const payload = await apiJson<PixelGrant>('/pixel/session');
+      const payload = await apiJson<PixelGrant>('/pixel/session', { method: 'POST' });
       setGrant(payload);
       setExpired(false);
     } catch (err) {

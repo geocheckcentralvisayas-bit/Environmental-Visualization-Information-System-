@@ -17,6 +17,10 @@ const FILES = [
   'legal.json',
   'pco-database.json',
   'pco-analysis.json',
+  'aqms.json',
+  'swm.json',
+  'ecc-ultralist.json',
+  'emed.json',
 ];
 
 async function validateFile(file: string, schema: any) {
@@ -49,10 +53,12 @@ async function validateWorkerAllowList() {
   const source = await readFile('worker/src/index.ts', 'utf8');
   const block = source.match(/const ROOT_DATA_FILES = new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? '';
   const allowed = new Set([...block.matchAll(/'([^']+)'/g)].map((match) => match[1]));
-  const entries = await readdir(OUT_DIR, { withFileTypes: true });
+  const entries = await readdir(OUT_DIR, { recursive: true }) as string[];
+  const isNestedAllowed = (name: string) =>
+    /^emed\/sheet-\d{2}\.json$/i.test(name) || /^geojson\/[a-z0-9][a-z0-9_.-]*\.geojson$/i.test(name);
   const missing = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.json') && !allowed.has(entry.name))
-    .map((entry) => entry.name);
+    .map((name) => name.replace(/\\/g, '/'))
+    .filter((name) => name.endsWith('.json') && !allowed.has(name) && !isNestedAllowed(name));
   if (missing.length) {
     console.error(`\nWorker allow-list is missing: ${missing.join(', ')}`);
     return false;
@@ -64,7 +70,12 @@ async function validateWorkerAllowList() {
 async function main() {
   console.log('Validating output JSON files...\n');
 
-  const schemas = {
+  const looseDataset = z.object({
+    generatedAt: z.string().optional(),
+    records: z.array(z.unknown()).optional(),
+    sheets: z.array(z.unknown()).optional(),
+  }).passthrough();
+  const schemas: Record<string, any> = {
     'permits.json': DatasetSchema.shape.permits,
     'sites.json': DatasetSchema.shape.sites,
     'meta.json': DatasetSchema.shape.meta,
@@ -81,6 +92,10 @@ async function main() {
       records: z.array(PCORecordSchema),
     }),
     'pco-analysis.json': PCOAnalysisSchema,
+    'aqms.json': looseDataset,
+    'swm.json': looseDataset,
+    'ecc-ultralist.json': looseDataset,
+    'emed.json': looseDataset,
   };
 
   let allValid = await validateWorkerAllowList();

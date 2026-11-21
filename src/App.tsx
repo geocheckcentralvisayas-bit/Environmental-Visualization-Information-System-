@@ -1,4 +1,5 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useDashboard } from './store/useDashboard';
 import { Layout } from './components/Layout';
@@ -8,6 +9,9 @@ import { LoginGate } from './components/LoginGate';
 import { subscribeGate, resolveGate, cancelGate, tryGateLogin, getPendingKind } from './lib/exportGate';
 import { loadSession, type Session } from './lib/auth';
 import { dataUrl } from './lib/api';
+import { PageTransition } from './components/Motion';
+import { useSafeMotion } from './hooks/use-safe-motion';
+import { motionTokens, springs } from './lib/motion-tokens';
 import type { PageId } from './types';
 
 const OverviewPage = lazy(() => import('./pages/Overview').then((m) => ({ default: m.OverviewPage })));
@@ -30,10 +34,11 @@ const PCOCornerPage = lazy(() => import('./pages/PCOCorner').then((m) => ({ defa
 const SolidWastePage = lazy(() => import('./pages/SolidWaste').then((m) => ({ default: m.SolidWastePage })));
 const AmbientCornerPage = lazy(() => import('./pages/AmbientCorner').then((m) => ({ default: m.AmbientCornerPage })));
 const PixelOfficePage = lazy(() => import('./pages/PixelOfficePage').then((m) => ({ default: m.PixelOfficePage })));
+const EmedMonitoringPage = lazy(() => import('./pages/EmedMonitoring').then((m) => ({ default: m.EmedMonitoringPage })));
 
 const PAGE_IDS: PageId[] = [
   'overview', 'sites', 'dp', 'pto', 'renewal', 'map',
-  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'swm', 'ambient', 'pixel-office', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
+  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'swm', 'ambient', 'emed', 'pixel-office', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
 ];
 
 function renderPage(page: PageId) {
@@ -52,6 +57,7 @@ function renderPage(page: PageId) {
     case 'hw': return <HazardousWastePage />;
     case 'swm': return <SolidWastePage />;
     case 'ambient': return <AmbientCornerPage />;
+    case 'emed': return <EmedMonitoringPage />;
     case 'pixel-office': return <PixelOfficePage />;
     case 'clearances': return <ClearancesPage />;
     case 'ecc-ultralist': return <EccUltralistPage />;
@@ -80,6 +86,7 @@ export default function App() {
   const [exportPass, setExportPass] = useState('');
   const [exportError, setExportError] = useState('');
   const [exportBusy, setExportBusy] = useState(false);
+  const gateMotion = useSafeMotion(motionTokens.distance.sm);
 
 useEffect(() => {
   setSessionStore(session);
@@ -209,7 +216,10 @@ useEffect(() => {
           <h1 className="mt-3 text-[16px] font-semibold text-slate-100">Dataset could not be loaded</h1>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{error}</p>
           <p className="mt-2 text-[10.5px] leading-relaxed text-slate-600">
-            Run <span className="kbd">npm run data:all</span> to rebuild the static dataset, then reload this page.
+            Run <span className="kbd">npm run data:all</span> to rebuild the dataset, then{' '}
+            <span className="kbd">npm run api:upload</span> (local) or{' '}
+            <span className="kbd">npm run api:upload:remote</span> (production) to publish it to the API, then reload
+            this page.
           </p>
           <button type="button" className="btn btn-primary mt-4 w-full" onClick={() => window.location.reload()}>
             <RefreshCw size={13} /> Reload
@@ -274,27 +284,50 @@ return (
     <>
       <Layout session={session} onLogout={() => setSession(null)}>
         <Suspense fallback={<PageLoading />}>
-          <ErrorBoundary resetKey={page}>{renderPage(page)}</ErrorBoundary>
+          <PageTransition pageKey={page}>
+            <ErrorBoundary resetKey={page}>{renderPage(page)}</ErrorBoundary>
+          </PageTransition>
         </Suspense>
       </Layout>
       <SiteDrawer />
-      {gateOpen && (
-        <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-sm p-6">
-            <h2 className="text-[15px] font-bold text-slate-50">{gateOpen && getPendingKind() === "geojson" ? "GIS login required" : "Exporter login required"}</h2>
+      <AnimatePresence>
+        {gateOpen && (
+        <motion.div
+          key="gate-overlay"
+          initial={{ opacity: gateMotion.animate ? 0 : 1 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: gateMotion.animate ? 0 : 1 }}
+          transition={{ duration: motionTokens.duration.fast }}
+          className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 backdrop-blur-sm"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') { cancelGate(); setGateOpen(false); setExportError(''); }
+          }}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gate-title"
+            className="card w-full max-w-sm p-6"
+            initial={{ opacity: gateMotion.animate ? 0 : 1, scale: gateMotion.animate ? motionTokens.scale.press : 1, y: gateMotion.animate ? motionTokens.distance.sm : 0 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: gateMotion.animate ? 0 : 1, scale: gateMotion.animate ? motionTokens.scale.press : 1, y: gateMotion.animate ? motionTokens.distance.sm : 0 }}
+            transition={springs.gentle}
+          >
+            <h2 id="gate-title" className="text-[15px] font-bold text-slate-50">{gateOpen && getPendingKind() === "geojson" ? "GIS login required" : "Exporter login required"}</h2>
             <p className="mt-1 text-[11px] text-slate-500">{gateOpen && getPendingKind() === "geojson" ? "Only the GIS account can download GeoJSON layers." : "Only the data extraction account can export data."}</p>
             <form onSubmit={handleExportLogin} className="mt-4 space-y-3">
-              <input type="text" value={exportUser} onChange={(e) => setExportUser(e.target.value)} placeholder="Username" autoComplete="username" required className="input h-9 w-full" />
-              <input type="password" value={exportPass} onChange={(e) => setExportPass(e.target.value)} placeholder="Password" autoComplete="current-password" required className="input h-9 w-full" />
+              <input autoFocus aria-label="Username" type="text" value={exportUser} onChange={(e) => setExportUser(e.target.value)} placeholder="Username" autoComplete="username" required className="input h-9 w-full" />
+              <input aria-label="Password" type="password" value={exportPass} onChange={(e) => setExportPass(e.target.value)} placeholder="Password" autoComplete="current-password" required className="input h-9 w-full" />
               {exportError && <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-200">{exportError}</div>}
               <div className="flex gap-2">
                 <button type="button" onClick={() => { cancelGate(); setGateOpen(false); setExportUser(''); setExportPass(''); setExportError(''); }} className="btn h-9 flex-1 justify-center">Cancel</button>
                 <button type="submit" disabled={exportBusy} className="btn btn-primary h-9 flex-1 justify-center">{exportBusy ? 'Signing in…' : 'Sign in'}</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

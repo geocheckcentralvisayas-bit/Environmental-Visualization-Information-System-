@@ -46,6 +46,9 @@ aid, not a replacement for official records, permits or clearances.
 - **The evidence trail is preserved.** Data-quality flags, review queues and
   source counts make it clear what was matched, what was skipped and what still
   needs review.
+- **EMED performance is visible in one place.** Monthly KRA targets and
+  accomplishments, division attainment and individual inspector workload are
+  charted beside the full 50-sheet monitoring workbook.
 
 ## What it covers
 
@@ -60,6 +63,7 @@ aid, not a replacement for official records, permits or clearances.
 | PCO Corner | Pollution Control Officer registry and analysis |
 | Ambient Corner (AQMS) | Live and historical PM2.5 / PM10 from two continuous stations, manual AQI samples and a station map; view-only |
 | Solid Waste Management (SWM) | MRF register, ECC/CNC disposal approvals, WACS analysis, current and archived annual compliance summaries, LGU contact directory and workbook reference lists — Cebu and Bohol only; view-only, with its own map and points on the Spatial Map |
+| EMED Monitoring Dashboards | CY 2026 KRA performance, monthly target vs accomplishment, division ratios, inspector workload and every sheet of the EMED monitoring workbook; restricted to RD, EMED and MIS accounts |
 | Spatial layers | Flood, landslide, protected areas, watersheds, land cover, land classification, boundaries |
 
 ## How it works
@@ -120,15 +124,17 @@ flowchart LR
 - **Data quality first** — QA flags, audit trails, review queues, duplicate
   sources and skipped-row reporting; nothing is imputed silently.
 - **Role-based access** — a login gate with role-specific visibility and export
-  permissions; the Regional Director has full visibility but no export controls,
-  and the Regional Director session does not expire.
+  permissions; the Regional Director has full visibility but no export controls.
+  All sessions, including the Regional Director's, expire after 8 hours.
 - **MIS administration** — the MIS account manages accounts, resets passwords,
   activates or deactivates users and reviews sign-in, export and account-change
   activity from the in-app Accounts & Activity page.
 - **Light and dark themes** — a DENR-themed interface that stays readable in
   bright field conditions.
-- **Static and portable** — the production bundle can be hosted at a domain root
-  or in a subfolder (GitHub Pages, S3, IIS, nginx) with no server-side component.
+- **Static and portable** — the UI files can be hosted at a domain root or in a
+  subfolder (GitHub Pages, S3, IIS, nginx), but the published build talks to the
+  authenticated Worker API; a build without `VITE_API_BASE` is an unauthenticated
+  static snapshot and must not be published with private data.
 
 ## Screenshots
 
@@ -153,6 +159,27 @@ One marker per establishment; rings show which registers the facility holds.
 ### Legal docket
 
 ![NOV and legal cases](docs/screenshots/legal-docket.png)
+
+### EMED Monitoring Dashboards
+
+Executive overview: overall attainment, monitoring and survey totals, division
+attainment and a KRA scorecard. Each chart can be filtered by program.
+
+![EMED performance overview](docs/screenshots/emed-overview.png)
+
+Inspector performance: ranked report lines, KRA totals and a selectable
+individual KRA profile.
+
+![EMED inspector performance](docs/screenshots/emed-inspector-performance.png)
+
+Worksheet explorer: all 50 tabs from the source workbook, grouped by category,
+with charts and the complete sortable/searchable table for the selected sheet.
+
+![EMED worksheet explorer](docs/screenshots/emed-worksheets.png)
+
+Refresh the EMED dataset with `npm run data:emed` (it re-downloads the workbook;
+`node scripts/build-emed.mjs` reuses the local cache). Publish with
+`npm run api:upload` locally or `npm run api:upload:remote` for the deployed API.
 
 ### About & License
 

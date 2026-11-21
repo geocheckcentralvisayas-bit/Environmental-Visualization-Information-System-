@@ -17,14 +17,15 @@ function Log([string]$msg) {
 
 switch ($Action) {
   'run' {
-    Log 'Starting data refresh (fetch + build).'
+    # data:spatial is not in this list: it needs the git-ignored spatial-src inputs.
+    $steps = @('data:fetch', 'data:build', 'data:ecc', 'data:aqms', 'data:emed', 'data:pco', 'data:pco:analysis', 'data:legal', 'data:swm', 'data:trim', 'data:validate')
+    Log "Starting data refresh ($($steps.Count) steps)."
     try {
-      Log 'Fetching Google Sheets...'
-      & npm run data:fetch 2>&1 | ForEach-Object { Add-Content -Path $logFile -Value $_ }
-      if ($LASTEXITCODE -ne 0) { Log "fetch failed (exit $LASTEXITCODE)"; exit 1 }
-      Log 'Building dataset...'
-      & npm run data:build 2>&1 | ForEach-Object { Add-Content -Path $logFile -Value $_ }
-      if ($LASTEXITCODE -ne 0) { Log "build failed (exit $LASTEXITCODE)"; exit 1 }
+      foreach ($step in $steps) {
+        Log "Running $step..."
+        & npm run $step 2>&1 | ForEach-Object { Add-Content -Path $logFile -Value $_ }
+        if ($LASTEXITCODE -ne 0) { Log "$step failed (exit $LASTEXITCODE)"; exit 1 }
+      }
       Log 'Refresh complete.'
     } catch {
       Log "ERROR: $($_.Exception.Message)"

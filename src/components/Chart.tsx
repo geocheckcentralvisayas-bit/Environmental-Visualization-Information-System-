@@ -1,4 +1,5 @@
 import ReactECharts from 'echarts-for-react';
+import { useReducedMotion } from 'motion/react';
 import type { EChartsOption } from 'echarts';
 import clsx from 'clsx';
 
@@ -38,16 +39,19 @@ export function Chart({
   height = 280,
   className,
   onEvents,
+  ariaLabel,
 }: {
   option: any;
   height?: number | string;
   className?: string;
   onEvents?: Record<string, (params: unknown) => void>;
+  ariaLabel?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
-    <div className={clsx('w-full', className)} style={{ height }}>
+    <div role="img" aria-label={ariaLabel ?? 'Chart'} className={clsx('w-full', className)} style={{ height }}>
       <ReactECharts
-        option={option}
+        option={{ animation: !reduce, ...option }}
         style={{ height: '100%', width: '100%' }}
         opts={{ renderer: 'canvas' }}
         notMerge

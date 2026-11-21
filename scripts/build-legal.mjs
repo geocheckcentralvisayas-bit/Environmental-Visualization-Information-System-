@@ -636,7 +636,7 @@ async function main() {
   const finalizeEntity = (entity) => {
     entity.legalNames = unique(entity.legalNames).sort((a, b) => a.localeCompare(b));
     entity.years = unique(entity.years).sort();
-    entity.caseNos = unique(entity.caseNos).slice(0, 60);
+    entity.caseNos = unique(entity.caseNos);
     entity.latestYear = entity.years.length ? entity.years[entity.years.length - 1] : null;
     entity.openCases = entity.openCases;
     entity.status =
@@ -847,6 +847,22 @@ async function main() {
     candidateCount: candidateRows.length,
   };
 
+  if (CHECK) {
+    const problems = [];
+    if (payload.totals.cases !== data.cases.length) problems.push('case count');
+    if (payload.totals.pabNov !== pabNovRows.length) problems.push('PAB NOV count');
+    if (payload.totals.erf !== erfRows.length) problems.push('ERF count');
+    if (payload.totals.complaints !== complaintRows.length) problems.push('complaint count');
+    if (!payload.entities.length) problems.push('no matched establishments');
+    if (problems.length) {
+      console.error(`Legal build check FAILED: ${problems.join(', ')}`);
+      process.exitCode = 1;
+    } else {
+      console.log('Legal build check      OK');
+    }
+    return;
+  }
+
   await mkdir(OUT_DIR, { recursive: true });
   await mkdir(REPORT_DIR, { recursive: true });
   await writeFile(OUT_FILE, JSON.stringify(payload));
@@ -871,21 +887,6 @@ async function main() {
   console.log(`PAB collected (2021-26) ₱${totals.pabCollected.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`);
   console.log(`Candidate review rows  ${candidateRows.length.toLocaleString()} → reports/legal-match-candidates.csv`);
 
-  if (CHECK) {
-    const written = JSON.parse(await readFile(OUT_FILE, 'utf8'));
-    const problems = [];
-    if (written.totals.cases !== data.cases.length) problems.push('case count');
-    if (written.totals.pabNov !== pabNovRows.length) problems.push('PAB NOV count');
-    if (written.totals.erf !== erfRows.length) problems.push('ERF count');
-    if (written.totals.complaints !== complaintRows.length) problems.push('complaint count');
-    if (!written.entities.length) problems.push('no matched establishments');
-    if (problems.length) {
-      console.error(`Legal build check FAILED: ${problems.join(', ')}`);
-      process.exitCode = 1;
-    } else {
-      console.log('Legal build check      OK');
-    }
-  }
 }
 
 main().catch((error) => {

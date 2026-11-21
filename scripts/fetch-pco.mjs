@@ -1,6 +1,6 @@
 /**
  * Fetch and parse PCO Database from Excel to JSON
- * Output: data/pco-database.json
+ * Output: public/data/pco-database.json
  */
 import fs from 'fs';
 import path from 'path';
@@ -8,20 +8,17 @@ import XLSX from 'xlsx';
 import { PCORecordSchema } from './schemas.ts';
 
 const INPUT_FILE = 'data/PCO Database.xlsx';
-const OUTPUT_FILE = 'data/pco-database.json';
+const OUTPUT_FILE = 'public/data/pco-database.json';
 
 function excelSerialToDate(serial) {
   if (serial === null || serial === undefined || serial === '') return null;
   const num = Number(serial);
   if (isNaN(num)) return String(serial); // Already a string date
-  // Excel epoch: 1900-01-01 (but Excel incorrectly treats 1900 as leap year)
-  // JavaScript epoch: 1970-01-01
-  const excelEpoch = new Date(1900, 0, 1);
-  const jsEpoch = new Date(1970, 0, 1);
-  const daysDiff = (jsEpoch - excelEpoch) / (1000 * 60 * 60 * 24); // 25569
-  const date = new Date((num - daysDiff) * 86400 * 1000);
-  // Adjust for Excel's fake leap day in 1900
-  if (num > 60) date.setDate(date.getDate() - 1);
+  // Excel serial 25569 is 1970-01-01. Use UTC arithmetic so DST cannot move a date.
+  const date = new Date(Math.floor(num - 25569) * 86400 * 1000);
+  if (Number.isNaN(date.getTime())) return String(serial);
+  // Excel incorrectly treats 1900 as a leap year.
+  if (num > 60) date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().split('T')[0];
 }
 

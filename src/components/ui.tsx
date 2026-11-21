@@ -1,6 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { motion } from 'motion/react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import clsx from 'clsx';
+import { motionConfig, motionTokens, springs } from '../lib/motion-tokens';
 
 export function Panel({
   title,
@@ -60,12 +62,16 @@ export function StatCard({
   onClick?: () => void;
 }) {
   const tone = ACCENTS[accent] ?? ACCENTS.emerald;
+  const animate = motionConfig.shouldAnimate();
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
+      whileHover={animate ? { y: -motionTokens.distance.xs } : undefined}
+      whileTap={animate ? { scale: motionTokens.scale.press } : undefined}
+      transition={springs.snappy}
       className={clsx(
-        'card group relative overflow-hidden p-4 text-left transition',
+        'card group relative h-full overflow-hidden p-4 text-left transition',
         onClick && 'cursor-pointer hover:-translate-y-0.5 hover:border-emerald-400/25 hover:shadow-glow',
         !onClick && 'cursor-default',
       )}
@@ -83,7 +89,7 @@ export function StatCard({
         )}
       </div>
       {footer && <div className="mt-3 border-t border-white/[0.055] pt-2.5">{footer}</div>}
-    </button>
+    </motion.button>
   );
 }
 
@@ -155,6 +161,8 @@ export function DataTable<T>({
 }) {
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(initialSort ?? null);
   const [page, setPage] = useState(0);
+
+  useEffect(() => { setPage(0); }, [rows]);
 
   const sorted = useMemo(() => {
     if (!sort) return rows;

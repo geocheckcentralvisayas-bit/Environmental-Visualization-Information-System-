@@ -74,9 +74,12 @@ jobs:
           if [ "$code" = "200" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "GitHub Pages is enabled for ${GITHUB_REPOSITORY}."
-          else
+          elif [ "$code" = "404" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "GitHub Pages is not enabled for ${GITHUB_REPOSITORY} (HTTP ${code}); skipping deploy."
+            echo "GitHub Pages is not enabled for ${GITHUB_REPOSITORY}; skipping deploy."
+          else
+            echo "Pages probe failed with HTTP ${code}; refusing to skip deploy silently."
+            exit 1
           fi
 
       - name: Verify API base

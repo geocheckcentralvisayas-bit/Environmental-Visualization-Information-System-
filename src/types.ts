@@ -637,6 +637,7 @@ export type PageId =
   | 'pco-corner'
   | 'swm'
   | 'ambient'
+  | 'emed'
   | 'pixel-office';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';

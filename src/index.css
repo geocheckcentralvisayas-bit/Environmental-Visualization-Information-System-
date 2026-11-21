@@ -550,3 +550,13 @@ html.light .text-slate-400 { color: #475569 !important; }
 html.light .text-slate-500 { color: #64748b !important; }
 html.light .text-slate-600 { color: #94a3b8 !important; }
 html.light .card { background: #ffffff; border-color: rgba(15,23,42,0.08); }
+
+/* ===== Reduced motion: keep orientation, drop movement ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.15s !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -215,6 +215,7 @@ function bboxOfGeoJson(geojson) {
 async function main() {
   await mkdir(OUT, { recursive: true });
   const manifest = [];
+  const missing = [];
 
   for (const layer of LAYERS) {
     const src = path.join(SRC, layer.src);
@@ -222,7 +223,8 @@ async function main() {
     try {
       await access(src, constants.R_OK);
     } catch {
-      console.warn(`  • ${layer.name} … skipped (missing ${src})`);
+      missing.push(src);
+      console.warn(`  • ${layer.name} … missing ${src}`);
       continue;
     }
     const args = ['-i', src];
@@ -263,6 +265,7 @@ async function main() {
     console.log(`${geojson.features.length} features, ${(size / 1024 / 1024).toFixed(2)} MB`);
   }
 
+  if (missing.length) throw new Error(`Missing spatial sources — refusing to publish incomplete layers: ${missing.join(', ')}`);
   const total = manifest.reduce((sum, l) => sum + l.sizeBytes, 0);
   await writeFile(
     path.join(OUT, 'layers.json'),

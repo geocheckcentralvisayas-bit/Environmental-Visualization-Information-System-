@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import {
   Building2, CalendarClock, ChevronRight, ClipboardCheck, Database, Droplets, FileDown,
   FileCheck2, FlaskConical, Gavel, Info, LayoutDashboard, Layers3, ListChecks, Map as MapIcon, Menu, PanelLeftClose,
-  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind, Bot,
+  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind, Bot, BarChart3,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useDashboard, useFilteredPermits, useFilteredSites } from '../store/useDashboard';
@@ -11,11 +12,13 @@ import { logout } from '../lib/auth';
 import type { Session } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
 import { APP_VERSION, BUILD_NUMBER, EMB_R7_URL, VERSION_LABEL } from '../lib/version';
+import { motionConfig, motionTokens, springs } from '../lib/motion-tokens';
 
 const NAV: { group: string; items: { id: PageId; label: string; icon: typeof LayoutDashboard; badge?: string }[] }[] = [
   { group: 'Monitor', items: [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'ambient', label: 'Ambient Corner', icon: Wind },
+    { id: 'emed', label: 'EMED Monitoring', icon: BarChart3, badge: 'NEW' },
     { id: 'pixel-office', label: 'Pixel Office', icon: Bot },
   ] },
   {
@@ -90,6 +93,7 @@ const PAGE_META: Record<PageId, { title: string; subtitle: string }> = {
   hw: { title: 'Hazardous waste register', subtitle: 'Hazardous-waste generators, waste streams and compliance status' },
   swm: { title: 'Solid waste management', subtitle: 'MRF status, disposal facilities and LGU coverage across Central Visayas' },
   ambient: { title: 'Ambient corner', subtitle: 'Air quality monitoring — live and historical PM2.5, PM10 and manual AQI' },
+  emed: { title: 'EMED monitoring dashboards', subtitle: 'CY 2026 KRA performance, inspector workload and every worksheet from the monitoring workbook' },
   'pixel-office': { title: 'Pixel office', subtitle: 'Animated EMB workplace — walk the floor, meet the team and chat with their bots' },
   clearances: { title: 'ECC & CNC clearances', subtitle: 'Environmental compliance and non-coverage certificates cross-referenced with DP and PTO' },
   'ecc-ultralist': { title: 'ECC & CNC ultralist', subtitle: 'Approved EIA clearances for Cebu and Bohol intercrossed with DP, PTO and hazardous waste' },
@@ -120,6 +124,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
     active?.scrollIntoView({ block: 'nearest' });
   }, [page]);
   const pageMeta = PAGE_META[page] ?? PAGE_META.overview;
+  const animateNav = motionConfig.shouldAnimate();
 
   const navigate = (id: PageId) => {
     setPage(id);
@@ -172,17 +177,27 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
                   const Icon = item.icon;
                   const active = page === item.id;
                   return (
-                    <button
+                    <motion.button
                       key={item.id}
                       type="button"
                       onClick={() => navigate(item.id)}
-                      className={clsx('sidebar-link w-full', active && 'active', collapsed && 'md:justify-center md:px-0')}
+                      whileHover={animateNav ? { scale: motionTokens.scale.pop } : undefined}
+                      whileTap={animateNav ? { scale: motionTokens.scale.press } : undefined}
+                      transition={springs.snappy}
+                      className={clsx('sidebar-link relative w-full overflow-hidden', active && 'active', collapsed && 'md:justify-center md:px-0')}
                       title={item.label}
                     >
-                      <Icon size={15} strokeWidth={2} className="nav-icon shrink-0 text-slate-500" />
-                      <span className={clsx('min-w-0 flex-1 text-left', collapsed ? 'truncate md:hidden' : 'leading-[1.2]')}>{item.label}</span>
-                      {active && <ChevronRight size={12} className={clsx('text-emerald-400/70', collapsed && 'md:hidden')} />}
-                    </button>
+                      {active && (
+                        <motion.span
+                          layoutId="nav-active-pill"
+                          className="absolute inset-0 rounded-lg bg-emerald-400/[0.08] ring-1 ring-emerald-400/10"
+                          transition={springs.gentle}
+                        />
+                      )}
+                      <Icon size={15} strokeWidth={2} className="nav-icon relative shrink-0 text-slate-500" />
+                      <span className={clsx('relative min-w-0 flex-1 text-left', collapsed ? 'truncate md:hidden' : 'leading-[1.2]')}>{item.label}</span>
+                      {active && <ChevronRight size={12} className={clsx('relative text-emerald-400/70', collapsed && 'md:hidden')} />}
+                    </motion.button>
                   );
                 })}
               </div>
@@ -235,6 +250,9 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <header className="no-print sticky top-0 z-[800] border-b border-white/[0.06] bg-[#050d0b]/85 backdrop-blur-xl">
           <div className="flex h-[60px] items-center gap-3 px-3 sm:px-5">
+            <button type="button" onClick={() => setMobileOpen(true)} className="btn btn-ghost h-8 w-8 p-0 md:hidden" aria-label="Open navigation" title="Open navigation">
+              <Menu size={17} />
+            </button>
             <button type="button" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} className="btn btn-ghost h-8 w-8 p-0" title="Toggle theme">
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
@@ -245,7 +263,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               </div>
               <p className="truncate text-[10.5px] text-slate-500">{pageMeta.subtitle}</p>
             </div>
-            {page !== 'swm' && page !== 'ambient' && page !== 'pixel-office' && (
+            {page !== 'swm' && page !== 'ambient' && page !== 'emed' && page !== 'pixel-office' && (
             <div className="relative hidden w-[240px] shrink-0 sm:block lg:w-[300px]">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
@@ -269,7 +287,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
             </div>
           </div>
 
-          <div className={clsx('flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5', (page === 'swm' || page === 'ambient' || page === 'pixel-office') && 'hidden')}>
+          <div className={clsx('flex items-center gap-1.5 overflow-x-auto border-t border-white/[0.05] px-3 py-2 sm:px-5', (page === 'swm' || page === 'ambient' || page === 'emed' || page === 'pixel-office') && 'hidden')}>
             <span className="mr-1 hidden shrink-0 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600 sm:block">Filters</span>
             <select className="select h-7 w-auto min-w-[92px] text-[10.5px]" value={String(filters.year)} onChange={(event) => setFilters({ year: event.target.value === 'all' ? 'all' : Number(event.target.value) })}>
               <option value="all">All years</option>
@@ -306,7 +324,7 @@ export function Layout({ children, session, onLogout }: { children: React.ReactN
               {meta?.totals.screened.toLocaleString()} permits spatially screened
             </div>
           </div>
-          <div className={clsx('px-3 pb-2 sm:hidden', (page === 'swm' || page === 'ambient' || page === 'pixel-office') && 'hidden')}>
+          <div className={clsx('px-3 pb-2 sm:hidden', (page === 'swm' || page === 'ambient' || page === 'emed' || page === 'pixel-office') && 'hidden')}>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input className="input h-8 pl-7" placeholder="Search company, permit, LGU…" value={filters.search} onChange={(event) => setFilters({ search: event.target.value })} />

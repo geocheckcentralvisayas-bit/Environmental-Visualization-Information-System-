@@ -506,9 +506,8 @@ async function extractHazardousWaste() {
     });
     text = newHeaders.join(',') + text.slice(nl);
     ({ rows } = csvToObjects(text));
-  } catch {
-    console.warn(`  ! ${file} not found — skipping hazardous-waste register`);
-    return { registrations: [], wasteRows: 0 };
+  } catch (error) {
+    throw new Error(`Expected hazardous-waste source ${file} is missing or unreadable: ${String(error.message ?? error)}`);
   }
 
   const groups = new Map();
@@ -1933,7 +1932,7 @@ async function loadSupport() {
     try {
       return parseCsv(await readFile(path.join(RAW_DIR, `${keyName}.csv`), 'utf8'));
     } catch {
-      return [];
+      throw new Error(`Expected support tab ${keyName}.csv is missing — run npm run data:fetch`);
     }
   };
 
@@ -2070,14 +2069,6 @@ async function main() {
     const list = permitsBySite.get(permit.siteId) ?? [];
     list.push(permit);
     permitsBySite.set(permit.siteId, list);
-  }
-  for (const site of sites) {
-    const aggregate = aggregateSpatial(permitsBySite.get(site.id) ?? []);
-    site.spatial = aggregate.spatial;
-    site.risk = aggregate.risk;
-  }
-  for (const site of sites) {
-    if (site._hwMembers) continue; // already finalised
   }
   const screenablesBySite = new Map();
   for (const item of [...permits, ...hazardous]) {

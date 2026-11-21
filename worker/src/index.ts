@@ -10,6 +10,8 @@ import {
   hashPassword,
   logActivity,
   normalizeUsername,
+  extendPixelSession,
+  pixelSessionExpiry,
   pruneLoginAttempts,
   registerLoginFailure,
   sessionCookie,
@@ -54,11 +56,13 @@ const ROOT_DATA_FILES = new Set([
   'ecc-ultralist.json',
   'swm.json',
   'aqms.json',
+  'emed.json',
   'geojson/layers.json',
 ]);
 
 function isAllowedDataPath(path: string): boolean {
   if (ROOT_DATA_FILES.has(path)) return true;
+  if (/^emed\/sheet-\d{2}\.json$/i.test(path)) return true;
   return /^geojson\/[a-z0-9][a-z0-9_.-]*\.geojson$/i.test(path);
 }
 
@@ -86,7 +90,9 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   }
 
   const ip = clientIp(request);
-  const buckets = [`ip:${ip}`, `user:${username}`];
+  // Per-IP only for the global cap; per-IP+user for repeat attempts. A single
+  // attacker must not be able to lock a named account out for everyone.
+  const buckets = [`ip:${ip}`, `user:${ip}:${username}`];
 
   for (const bucket of buckets) {
     const retryAfter = await assertLoginAllowed(env, bucket);
@@ -184,6 +190,11 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
   if (purpose === 'export' && !canExport(account.role)) {
     return fail(403, 'This account cannot export data.');
   }
+  // Re-authentication must confirm the signed-in user, not just a privileged
+  // account whose password they happen to know.
+  if (account.id !== auth.account.id) {
+    return fail(403, 'Enter the credentials of the currently signed-in account.');
+  }
 
   await logActivity(
     env,
@@ -197,6 +208,13 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
 
 async function handleData(request: Request, env: Env, auth: AuthContext, path: string): Promise<Response> {
   if (!isAllowedDataPath(path)) return fail(404, 'Not found.');
+  // EMED worksheets contain complainant, PCO and inspector contact details.
+  // A signed-in account alone is not enough to read them.
+  if (path === 'emed.json' || path.startsWith('emed/')) {
+    if (!['rd', 'emed', 'mis'].includes(auth.session.role)) {
+      return fail(403, 'EMED monitoring data requires an EMED, RD or MIS account.');
+    }
+  }
   const object = await env.DATA.get(`data/${path}`);
   if (!object) return fail(404, 'Not found.');
 
@@ -220,11 +238,20 @@ async function handleData(request: Request, env: Env, auth: AuthContext, path: s
 const PIXEL_SESSION_MS = 15 * 60_000;
 
 async function handlePixelSession(request: Request, env: Env, auth: AuthContext): Promise<Response> {
-  if (request.method !== 'GET') return fail(405, 'Method not allowed.');
+  if (request.method !== 'POST') return fail(405, 'Method not allowed.');
   if (auth.session.role !== 'mis' && auth.session.role !== 'rd') {
     return fail(403, 'Only MIS and RD accounts can open the Pixel Office.');
   }
-  const expiresAt = Date.now() + PIXEL_SESSION_MS;
+  const now = Date.now();
+  const existing = await pixelSessionExpiry(env, auth.tokenHash);
+  if (existing && existing > now) {
+    return json(
+      { allowed: true, role: auth.session.role, expiresAt: existing, serverTime: now },
+      { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
+    );
+  }
+  const expiresAt = now + PIXEL_SESSION_MS;
+  await extendPixelSession(env, auth.tokenHash, expiresAt);
   await logActivity(
     env,
     'pixel-session-open',
