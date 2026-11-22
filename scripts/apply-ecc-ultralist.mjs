@@ -28,16 +28,34 @@ async function readJson(file, fallback) {
 }
 
 function decodeUltralist(raw) {
-  const fields = raw?.fields ?? [];
-  const rows = raw?.records ?? [];
-  if (!fields.length || !rows.length) return [];
-  return rows.map((row) => {
-    const record = {};
-    fields.forEach((field, index) => {
-      record[field] = row[index];
-    });
-    return record;
-  });
+  if (!raw || typeof raw !== 'object') {
+    console.warn('[decodeUltralist] Invalid input: not an object');
+    return { fields: [], records: [] };
+  }
+
+  const fields = Array.isArray(raw.fields) && raw.fields.every((f) => typeof f === 'string')
+    ? raw.fields
+    : (console.warn('[decodeUltralist] fields must be string[]'), []);
+
+  const records = Array.isArray(raw.records)
+    ? raw.records
+        .filter((row, i) => {
+          if (!Array.isArray(row)) {
+            console.warn(`[decodeUltralist] Skipping row ${i}: not an array`);
+            return false;
+          }
+          return true;
+        })
+        .map((row) => {
+          const record = {};
+          fields.forEach((field, index) => {
+            record[field] = row[index];
+          });
+          return record;
+        })
+    : (console.warn('[decodeUltralist] records must be array'), []);
+
+  return { fields, records };
 }
 
 function clearanceLifecycle(status, issued) {
@@ -207,7 +225,7 @@ export async function applyEccUltralist() {
     }
   }
 
-  const records = decodeUltralist(raw);
+  const records = decodeUltralist(raw).records;
   const clearances = records.map((record) => toClearance(record, hwByNumber));
 
   aggregateSites(sites, clearances);

@@ -1,11 +1,12 @@
 // Re-export all stores for backward compatibility
-export { useDataStore, selectData, selectLoading, selectProgress, selectError, selectPermits, selectSites, selectMeta, selectQuality, selectLayers, selectHw, selectClearances, selectFacilities, selectLegal, selectPCORecords, selectPCOAnalysis } from './useDataStore';
-export { useFiltersStore, useFilteredPermits, useFilteredSites, useFilteredHw, useFilteredClearances, useFilteredFacilities, filterPermits, filterSites, filterHw, filterClearances, filterFacilities, matchesSearch } from './useFiltersStore';
+export { useDataStore, selectData, selectLoading, selectProgress, selectError, selectOptionalErrors, selectPermits, selectSites, selectMeta, selectQuality, selectLayers, selectHw, selectClearances, selectFacilities, selectLegal, selectPCORecords, selectPCOAnalysis } from './useDataStore';
+export { useFiltersStore, useFilteredPermits, useFilteredSites, useFilteredHw, useFilteredClearances, useFilteredFacilities } from './useFiltersStore';
+export { filterPermits, filterSites, filterHw, filterClearances, filterFacilities, matchesSearch } from './filters';
 export { useUIStore, selectPage, selectSelectedSiteId, selectFocus, selectLegalFocus, selectSession } from './useUIStore';
 export { loadDashboardData } from './dataLoader';
 
 // Combined hook for components that need multiple stores (gradual migration)
-import { useDataStore, selectData, selectLoading, selectProgress, selectError, selectPCORecords, selectPCOAnalysis } from './useDataStore';
+import { useDataStore, selectData, selectLoading, selectProgress, selectError, selectOptionalErrors, selectPCORecords, selectPCOAnalysis } from './useDataStore';
 import { useFiltersStore } from './useFiltersStore';
 import { useUIStore, selectPage, selectSelectedSiteId, selectFocus, selectLegalFocus, selectSession } from './useUIStore';
 import { loadDashboardData } from './dataLoader';
@@ -20,6 +21,7 @@ export interface DashboardState {
   loading: boolean;
   progress: string;
   error: string | null;
+  optionalErrors: string[];
   page: PageId;
   filters: Filters;
   siteGap: SiteGap | 'all' | 'match-only';
@@ -44,6 +46,7 @@ export function useDashboard(): DashboardState {
   const loading = useDataStore(selectLoading);
   const progress = useDataStore(selectProgress);
   const error = useDataStore(selectError);
+  const optionalErrors = useDataStore(selectOptionalErrors);
   const page = useUIStore(selectPage);
   const filters = useFiltersStore((state) => state.filters);
   const siteGap = useFiltersStore((state) => state.siteGap);
@@ -57,6 +60,7 @@ export function useDashboard(): DashboardState {
     loading,
     progress,
     error,
+    optionalErrors,
     page,
     filters,
     siteGap,

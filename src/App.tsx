@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useDashboard } from './store/useDashboard';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -75,11 +75,13 @@ export default function App() {
   const loading = useDashboard((state) => state.loading);
   const progress = useDashboard((state) => state.progress);
   const error = useDashboard((state) => state.error);
+  const optionalErrors = useDashboard((state) => state.optionalErrors);
   const page = useDashboard((state) => state.page);
   const setPage = useDashboard((state) => state.setPage);
   const setSessionStore = useDashboard((state) => state.setSession);
   const [session, setSession] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
+  const [optionalDismissed, setOptionalDismissed] = useState(false);
 
   const [gateOpen, setGateOpen] = useState(false);
   const [exportUser, setExportUser] = useState('');
@@ -283,6 +285,23 @@ useEffect(() => {
 return (
     <>
       <Layout session={session} onLogout={() => setSession(null)}>
+        {optionalErrors.length > 0 && !optionalDismissed && (
+          <div role="status" className="mb-3 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[11px] leading-relaxed text-amber-200/90">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <span className="font-semibold">{optionalErrors.length} optional dataset{optionalErrors.length === 1 ? '' : 's'} failed to load</span>
+              {' — the rest of the dashboard is unaffected.'}
+              <ul className="mt-0.5 list-disc pl-4 text-amber-200/70">
+                {optionalErrors.map((message) => (
+                  <li key={message} className="break-words">{message}</li>
+                ))}
+              </ul>
+            </div>
+            <button type="button" aria-label="Dismiss optional dataset warnings" onClick={() => setOptionalDismissed(true)} className="shrink-0 rounded p-0.5 text-amber-200/60 hover:text-amber-200">
+              <X size={13} />
+            </button>
+          </div>
+        )}
         <Suspense fallback={<PageLoading />}>
           <PageTransition pageKey={page}>
             <ErrorBoundary resetKey={page}>{renderPage(page)}</ErrorBoundary>

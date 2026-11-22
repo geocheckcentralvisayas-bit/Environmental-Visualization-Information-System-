@@ -8,11 +8,13 @@ interface DataState {
   loading: boolean;
   progress: string;
   error: string | null;
+  optionalErrors: string[];
   setData: (data: Dataset) => void;
   setPCOData: (records: PCORecord[], analysis: PCOAnalysis) => void;
   setLoading: (loading: boolean) => void;
   setProgress: (progress: string) => void;
   setError: (error: string | null) => void;
+  setOptionalErrors: (errors: string[]) => void;
 }
 
 const EMPTY_LEGAL: LegalData = {
@@ -44,18 +46,21 @@ export const useDataStore = create<DataState>((set) => ({
   loading: false,
   progress: '',
   error: null,
+  optionalErrors: [],
 
   setData: (data) => set({ data }),
   setPCOData: (records, analysis) => set({ pcoRecords: records, pcoAnalysis: analysis }),
   setLoading: (loading) => set({ loading }),
   setProgress: (progress) => set({ progress }),
   setError: (error) => set({ error }),
+  setOptionalErrors: (optionalErrors) => set({ optionalErrors }),
 }));
 
 export const selectData = (state: DataState) => state.data;
 export const selectLoading = (state: DataState) => state.loading;
 export const selectProgress = (state: DataState) => state.progress;
 export const selectError = (state: DataState) => state.error;
+export const selectOptionalErrors = (state: DataState) => state.optionalErrors;
 export const selectPermits = (state: DataState) => state.data?.permits ?? [];
 export const selectSites = (state: DataState) => state.data?.sites ?? [];
 export const selectMeta = (state: DataState) => state.data?.meta;

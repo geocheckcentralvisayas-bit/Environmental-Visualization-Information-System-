@@ -83,6 +83,7 @@ export function MapView({
   const legalRingRef = useRef<L.LayerGroup | null>(null);
   const focusRendererRef = useRef<L.SVG | null>(null);
   const appliedFocusRef = useRef(0);
+  const resizeRef = useRef<ResizeObserver | null>(null);
   const overlayRef = useRef<Map<string, L.GeoJSON>>(new Map());
   const overlayData = useRef<Map<string, unknown>>(new Map());
   const overlayRequests = useRef<Map<string, Promise<unknown>>>(new Map());
@@ -149,14 +150,12 @@ export function MapView({
     map.createPane('overlays');
     map.getPane('overlays')!.style.zIndex = '330';
     mapRef.current = map;
-    /*
-     * React StrictMode mounts effects twice in development; reset the focus
-     * guard so the "open on map" hand-off replays on the fresh map instance.
-     */
     appliedFocusRef.current = 0;
     setReady(true);
+    if (resizeRef.current) resizeRef.current.disconnect();
     const resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(containerRef.current);
+    resizeRef.current = resize;
     return () => {
       resize.disconnect();
       map.remove();
@@ -472,6 +471,7 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const controller = new AbortController();
     let cancelled = false;
 
     const loadLayer = async (meta: SpatialLayer): Promise<unknown> => {
@@ -480,7 +480,7 @@ export function MapView({
       const inflight = overlayRequests.current.get(meta.id);
       if (inflight) return inflight;
       const request = (async () => {
-        const response = await fetch(dataUrl(`geojson/${meta.file}`), { credentials: 'include' });
+        const response = await fetch(dataUrl(`geojson/${meta.file}`), { credentials: 'include', signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${meta.name}`);
         return response.json() as Promise<unknown>;
       })();
@@ -571,6 +571,7 @@ export function MapView({
     syncLayers();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [activeLayers, layers, layerErrors, opacity, ready, reloadToken]);
 

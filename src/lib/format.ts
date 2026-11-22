@@ -203,7 +203,11 @@ export function downloadCsv(filename: string, rows: Record<string, unknown>[]): 
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  URL.revokeObjectURL(url);
+  // Deferred revocation: synchronous revoke can abort the download in Firefox/Safari.
+  // Use queueMicrotask to wait for the download to start, then setTimeout as a fallback.
+  queueMicrotask(() => {
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
 }
 
 export function downloadJson(filename: string, data: unknown): void {
@@ -213,7 +217,9 @@ export function downloadJson(filename: string, data: unknown): void {
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  URL.revokeObjectURL(url);
+  queueMicrotask(() => {
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
 }
 
 export function titleCase(value: string): string {

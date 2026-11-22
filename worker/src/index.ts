@@ -17,7 +17,7 @@ import {
   sessionCookie,
   verifyPassword,
 } from './auth';
-import { clientIp, fail, isOriginAllowed, json, readJson, withCors } from './http';
+import { fail, isOriginAllowed, json, readJson, withCors } from './http';
 import type { AccountRow, AuthContext, Env, Role } from './types';
 
 const ROLES: Role[] = ['extraction', 'rd', 'emed', 'cpd', 'mis', 'viewer', 'gis'];
@@ -89,19 +89,12 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return fail(400, 'Username and password are required.');
   }
 
-  const ip = clientIp(request);
-  // Per-IP only for the global cap; per-IP+user for repeat attempts. A single
-  // attacker must not be able to lock a named account out for everyone.
-  const buckets = [`ip:${ip}`, `user:${ip}:${username}`];
-
-  for (const bucket of buckets) {
-    const retryAfter = await assertLoginAllowed(env, bucket);
-    if (retryAfter > 0) {
-      return json(
-        { error: 'Too many failed attempts. Try again later.' },
-        { status: 429, headers: { 'Retry-After': String(retryAfter) } },
-      );
-    }
+  const retryAfter = await assertLoginAllowed(env, username);
+  if (retryAfter > 0) {
+    return json(
+      { error: 'Too many failed attempts. Try again later.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+    );
   }
 
   const account = await env.DB.prepare('SELECT * FROM accounts WHERE lower(username) = ?')
@@ -116,7 +109,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     await burnPasswordCheck(body.password);
   }
   if (!account || !ok) {
-    for (const bucket of buckets) await registerLoginFailure(env, bucket);
+    await registerLoginFailure(env, username);
     await logActivity(
       env,
       'login-failed',
@@ -127,7 +120,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return fail(401, 'Invalid username or password.');
   }
 
-  for (const bucket of buckets) await clearLoginFailures(env, bucket);
+  await clearLoginFailures(env, username);
   await pruneLoginAttempts(env);
 
   const { token, session } = await createSession(env, account);
@@ -161,8 +154,7 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
   }
 
   const purpose = body.purpose === 'geojson' ? 'geojson' : 'export';
-  const bucket = `verify:${clientIp(request)}:${username}`;
-  const retryAfter = await assertLoginAllowed(env, bucket);
+  const retryAfter = await assertLoginAllowed(env, username);
   if (retryAfter > 0) {
     return json({ error: 'Too many failed attempts. Try again later.' }, { status: 429, headers: { 'Retry-After': String(retryAfter) } });
   }
@@ -178,11 +170,11 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
     await burnPasswordCheck(body.password);
   }
   if (!account || !ok) {
-    await registerLoginFailure(env, bucket);
+    await registerLoginFailure(env, username);
     await logActivity(env, 'login-failed', `Failed ${purpose} re-authentication`, account?.username ?? 'unknown', account?.role ?? 'unknown');
     return fail(401, 'Invalid username or password.');
   }
-  await clearLoginFailures(env, bucket);
+  await clearLoginFailures(env, username);
 
   if (purpose === 'geojson' && account.role !== 'gis') {
     return fail(403, 'This account cannot download GeoJSON layers.');
@@ -344,10 +336,13 @@ async function handleAqmsLive(): Promise<Response> {
   }
   try {
     const base = `https://docs.google.com/spreadsheets/d/${AQMS_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
     const [talisay, toledo] = await Promise.all([
-      fetch(`${base}${encodeURIComponent('CITY OF TALISAY')}`),
-      fetch(`${base}${encodeURIComponent('CITY OF TOLEDO')}`),
+      fetch(`${base}${encodeURIComponent('CITY OF TALISAY')}`, { signal: controller.signal }),
+      fetch(`${base}${encodeURIComponent('CITY OF TOLEDO')}`, { signal: controller.signal }),
     ]);
+    clearTimeout(timeoutId);
     if (!talisay.ok || !toledo.ok) throw new Error(`Google Sheets HTTP ${talisay.status}/${toledo.status}`);
     const readings = [
       ...latestAqmsRows(await talisay.text(), 'talisay', 72),
@@ -522,6 +517,18 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
   let updated = 0;
   let skipped = 0;
 
+  const accountsToHash: Array<{ password: string; index: number }> = [];
+  const accountRecords: Array<{
+    username: string;
+    role: Role;
+    displayName: string;
+    division: string;
+    active: boolean;
+    passwordHash: string;
+    current: AccountRow | undefined;
+    isUpdate: boolean;
+  }> = [];
+
   for (const raw of body.accounts) {
     const record = (raw ?? {}) as Record<string, unknown>;
     const username = typeof record.username === 'string' ? normalizeUsername(record.username) : '';
@@ -539,27 +546,57 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
     if (validPasswordHash(record.passwordHash)) {
       passwordHash = record.passwordHash;
     } else if (validPassword(record.password)) {
-      passwordHash = await hashPassword(record.password);
+      const idx = accountRecords.length;
+      accountsToHash.push({ password: record.password, index: idx });
+      passwordHash = ''; // placeholder, will be filled after batch hashing
     }
 
     const current = byName.get(username);
-    if (!current && !passwordHash) { skipped += 1; continue; }
+    if (!current && !passwordHash && !accountsToHash.some(a => a.index === accountRecords.length)) { skipped += 1; continue; }
+
+    const isUpdate = !!current;
+    accountRecords.push({
+      username,
+      role,
+      displayName,
+      division,
+      active,
+      passwordHash,
+      current,
+      isUpdate,
+    });
 
     nextState.set(username, { role, active });
+  }
 
-    if (current) {
-      if (passwordHash || role !== current.role || Boolean(current.active) !== active) revoke.add(current.id);
+  // Batch hash all passwords in parallel to avoid sequential PBKDF2 bottleneck
+  if (accountsToHash.length > 0) {
+    const hashes = await Promise.all(
+      accountsToHash.map(({ password }) => hashPassword(password))
+    );
+    for (let i = 0; i < accountsToHash.length; i += 1) {
+      accountRecords[accountsToHash[i].index].passwordHash = hashes[i];
+    }
+  }
+
+  for (const rec of accountRecords) {
+    if (!rec.current && !rec.passwordHash) { skipped += 1; continue; }
+
+    if (rec.current) {
+      if (rec.passwordHash || rec.role !== rec.current.role || Boolean(rec.current.active) !== rec.active) {
+        revoke.add(rec.current.id);
+      }
       statements.push(
         env.DB.prepare(
           'UPDATE accounts SET display_name = ?, division = ?, role = ?, active = ?, password_hash = ?, updated_at = ? WHERE id = ?',
         ).bind(
-          displayName || current.display_name,
-          division || current.division,
-          role,
-          active ? 1 : 0,
-          passwordHash || current.password_hash,
+          rec.displayName || rec.current.display_name,
+          rec.division || rec.current.division,
+          rec.role,
+          rec.active ? 1 : 0,
+          rec.passwordHash || rec.current.password_hash,
           now,
-          current.id,
+          rec.current.id,
         ),
       );
       updated += 1;
@@ -568,7 +605,7 @@ async function handleAdminImport(request: Request, env: Env, auth: AuthContext):
         env.DB.prepare(
           `INSERT INTO accounts (username, display_name, division, role, password_hash, active, builtin, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-        ).bind(username, displayName || username, division || '—', role, passwordHash, active ? 1 : 0, now, now),
+        ).bind(rec.username, rec.displayName || rec.username, rec.division || '—', rec.role, rec.passwordHash, rec.active ? 1 : 0, now, now),
       );
       added += 1;
     }

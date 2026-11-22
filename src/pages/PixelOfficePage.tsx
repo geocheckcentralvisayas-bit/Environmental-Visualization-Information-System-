@@ -50,6 +50,7 @@ export function PixelOfficePage() {
   }, [postSession]);
 
   useEffect(() => {
+    let toastTimer: ReturnType<typeof setTimeout> | null = null;
     const handler = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
@@ -57,11 +58,15 @@ export function PixelOfficePage() {
       if (data.type === 'envis:pixel-ready') postSession();
       if (data.type === 'envis:pixel-room') {
         setRoomToast(String(data.detail ?? 'a room'));
-        window.setTimeout(() => setRoomToast(null), 3200);
+        if (toastTimer) window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => setRoomToast(null), 3200);
       }
     };
     window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
+    return () => {
+      window.removeEventListener('message', handler);
+      if (toastTimer) window.clearTimeout(toastTimer);
+    };
   }, [postSession]);
 
   useEffect(() => {

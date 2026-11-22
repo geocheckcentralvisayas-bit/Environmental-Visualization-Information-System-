@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { AqmsDataset, Clearance, EccUltraData, EccUltraRecord, Facility, HwRegistration, LayerManifest, LegalData, Meta, PageId, PCOAnalysis, PCORecord, Permit, QualityData, Site, SiteGap, SwmDataset } from '../types';
 import type { Session } from '../lib/auth';
 import { dataUrl } from '../lib/api';
+import { filterPermits, filterSites, filterHw, filterClearances, filterFacilities, matchesSearch, DEFAULT_FILTERS, sanitizeFiltersPatch } from './filters';
 
 export interface Filters {
   year: number | 'all';
@@ -54,6 +55,7 @@ interface DashboardState {
   loading: boolean;
   progress: string;
   error: string | null;
+  optionalErrors: string[];
   page: PageId;
   filters: Filters;
   siteGap: SiteGap | 'all' | 'match-only';
@@ -74,26 +76,20 @@ interface DashboardState {
   loadClearances: () => Promise<void>;
 }
 
-const DEFAULT_FILTERS: Filters = {
-  year: 'all',
-  province: 'all',
-  lifecycle: 'all',
-  scope: 'in',
-  type: 'all',
-  search: '',
-};
-
 async function fetchJson<T>(file: string): Promise<T> {
   const response = await fetch(dataUrl(file), { credentials: 'include' });
   if (!response.ok) throw new Error(`Could not load ${file} (HTTP ${response.status})`);
   return (await response.json()) as T;
 }
 
+const optionalFailures: string[] = [];
+
 /** Optional datasets keep the dashboard usable before their build step runs. */
 async function fetchOptionalJson<T>(file: string, fallback: T): Promise<T> {
   try {
     return await fetchJson<T>(file);
-  } catch {
+  } catch (error) {
+    optionalFailures.push(`${file}: ${error instanceof Error ? error.message : 'unknown error'}`);
     return fallback;
   }
 }
@@ -134,6 +130,7 @@ export const useDashboard = create<DashboardState>((set, get) => ({
   loading: false,
   progress: '',
   error: null,
+  optionalErrors: [],
   page: (window.location.hash.replace('#/', '') as PageId) || 'overview',
   filters: DEFAULT_FILTERS,
   siteGap: 'all',
@@ -144,7 +141,8 @@ export const useDashboard = create<DashboardState>((set, get) => ({
 
   load: async () => {
     if (get().loading || get().data) return;
-    set({ loading: true, error: null, progress: 'Opening registers…' });
+    optionalFailures.length = 0;
+    set({ loading: true, error: null, optionalErrors: [], progress: 'Opening registers…' });
     try {
       const meta = await fetchJson<Meta>('meta.json');
       set({ progress: 'Loading permit records…' });
@@ -175,7 +173,7 @@ export const useDashboard = create<DashboardState>((set, get) => ({
         fetchOptionalJson<SwmDataset | null>('swm.json', null),
         fetchOptionalJson<AqmsDataset | null>('aqms.json', null),
       ]);
-      set({ swm, aqms });
+      set({ swm, aqms, optionalErrors: [...optionalFailures] });
     } catch (error) {
       set({
         loading: false,
@@ -190,7 +188,7 @@ export const useDashboard = create<DashboardState>((set, get) => ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
-  setFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...patch } })),
+  setFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...sanitizeFiltersPatch(patch) } })),
   resetFilters: () => set({ filters: DEFAULT_FILTERS, siteGap: 'all' }),
   setSiteGap: (siteGap) => set({ siteGap }),
   selectSite: (selectedSiteId) => set({ selectedSiteId }),
@@ -273,133 +271,35 @@ export const useDashboard = create<DashboardState>((set, get) => ({
   },
 }));
 
-export function matchesSearch(haystack: Array<string | number | null | undefined>, search: string): boolean {
-  const query = search.trim().toLowerCase();
-  if (!query) return true;
-  return haystack.some((value) => String(value ?? '').toLowerCase().includes(query));
-}
-
-export function filterPermits(permits: Permit[], filters: Filters): Permit[] {
-  return permits.filter((permit) => {
-    if (filters.year !== 'all' && permit.year !== filters.year) return false;
-    if (filters.province !== 'all' && permit.province !== filters.province) return false;
-    if (filters.lifecycle !== 'all' && permit.lifecycle !== filters.lifecycle) return false;
-    if (filters.type !== 'all' && permit.type !== filters.type) return false;
-    if (filters.scope === 'in' && permit.scope !== 'in') return false;
-    if (filters.scope === 'out' && permit.scope === 'in') return false;
-    return matchesSearch(
-      [permit.company, permit.permitNo, permit.municipality, permit.province, permit.barangay, permit.industry, permit.address],
-      filters.search,
-    );
-  });
-}
-
-export function filterSites(sites: Site[], filters: Filters, gap: SiteGap | 'all' | 'match-only'): Site[] {
-  return sites.filter((site) => {
-    if (filters.year !== 'all' && !site.years.includes(filters.year)) return false;
-    if (filters.province !== 'all' && site.province !== filters.province) return false;
-    if (filters.scope === 'in' && site.scope !== 'in') return false;
-    if (filters.scope === 'out' && site.scope === 'in') return false;
-    if (filters.type === 'DP' && site.dpCount === 0) return false;
-    if (filters.type === 'PTO' && site.ptoCount === 0) return false;
-    if (gap === 'match-only' && site.matchType !== 'both') return false;
-    if (gap !== 'all' && gap !== 'match-only' && site.gap !== gap) return false;
-    if (filters.lifecycle === 'Active' && !(site.activeDP || site.activePTO || site.activeHW)) return false;
-    if (filters.lifecycle === 'Expired' && (site.activeDP || site.activePTO || site.activeHW)) return false;
-    return matchesSearch(
-      [site.company, site.municipality, site.province, site.barangay, site.address, site.industry, site.hwGrNos.join(' '), site.eccNos.join(' '), site.cncNos.join(' ')],
-      filters.search,
-    );
-  });
-}
-
 export function useFilteredPermits(): Permit[] {
-  const data = useDashboard((state) => state.data);
+  const permits = useDashboard((state) => state.data?.permits);
   const filters = useDashboard((state) => state.filters);
-  return useMemo(() => (data ? filterPermits(data.permits, filters) : []), [data, filters]);
+  return useMemo(() => (permits ? filterPermits(permits, filters) : []), [permits, filters]);
 }
 
 export function useFilteredSites(): Site[] {
-  const data = useDashboard((state) => state.data);
+  const sites = useDashboard((state) => state.data?.sites);
   const filters = useDashboard((state) => state.filters);
   const siteGap = useDashboard((state) => state.siteGap);
-  return useMemo(() => (data ? filterSites(data.sites, filters, siteGap) : []), [data, filters, siteGap]);
-}
-
-export function filterHw(registrations: HwRegistration[], filters: Filters): HwRegistration[] {
-  return registrations.filter((registration) => {
-    if (filters.year !== 'all') {
-      const year = registration.issued ? Number(registration.issued.slice(0, 4)) : null;
-      if (year !== filters.year) return false;
-    }
-    if (filters.province !== 'all' && registration.province !== filters.province) return false;
-    if (filters.lifecycle !== 'all' && registration.lifecycle !== filters.lifecycle) return false;
-    if (filters.scope === 'in' && registration.scope !== 'in') return false;
-    if (filters.scope === 'out' && registration.scope === 'in') return false;
-    return matchesSearch(
-      [registration.company, registration.hwGrNo, registration.appNo, registration.caseHandler, registration.municipality, registration.province, registration.barangay, registration.address, registration.industry, registration.eccNos.join(' '), registration.cncNos.join(' '), registration.wasteCodes.map((code) => `${code.code} ${code.description}`).join(' ')],
-      filters.search,
-    );
-  });
-}
-
-export function filterClearances(clearances: Clearance[], filters: Filters): Clearance[] {
-  return clearances.filter((clearance) => {
-    if (filters.year !== 'all' && clearance.year !== filters.year) return false;
-    if (filters.province !== 'all' && clearance.province !== filters.province) return false;
-    if (filters.lifecycle !== 'all' && clearance.lifecycle !== filters.lifecycle) return false;
-    if (filters.scope === 'in' && clearance.scope !== 'in') return false;
-    if (filters.scope === 'out' && clearance.scope === 'in') return false;
-    return matchesSearch(
-      [clearance.number, clearance.type, clearance.company, clearance.project, clearance.municipality, clearance.province, clearance.barangay, clearance.hwGrNo, clearance.permitRefs.join(' '), clearance.sources.join(' '), clearance.hwCodes.join(' ')],
-      filters.search,
-    );
-  });
+  return useMemo(() => (sites ? filterSites(sites, filters, siteGap) : []), [sites, filters, siteGap]);
 }
 
 export function useFilteredHw(): HwRegistration[] {
-  const data = useDashboard((state) => state.data);
+  const hw = useDashboard((state) => state.data?.hw);
   const filters = useDashboard((state) => state.filters);
-  return useMemo(() => (data ? filterHw(data.hw, filters) : []), [data, filters]);
+  return useMemo(() => (hw ? filterHw(hw, filters) : []), [hw, filters]);
 }
 
 export function useFilteredClearances(): Clearance[] {
-  const data = useDashboard((state) => state.data);
+  const clearances = useDashboard((state) => state.data?.clearances);
   const filters = useDashboard((state) => state.filters);
-  return useMemo(() => (data ? filterClearances(data.clearances, filters) : []), [data, filters]);
-}
-
-export function filterFacilities(facilities: Facility[], filters: Filters): Facility[] {
-  return facilities.filter((facility) => {
-    if (filters.year !== 'all' && !facility.years.includes(filters.year)) return false;
-    if (filters.province !== 'all' && facility.province !== filters.province) return false;
-    if (filters.scope === 'in' && facility.scope !== 'in') return false;
-    if (filters.scope === 'out' && facility.scope === 'in') return false;
-    if (filters.type === 'DP' && facility.counts.DP === 0) return false;
-    if (filters.type === 'PTO' && facility.counts.PTO === 0) return false;
-    const active = facility.activeDP || facility.activePTO || facility.activeHW;
-    if (filters.lifecycle === 'Active' && !active) return false;
-    if (filters.lifecycle === 'Expired' && active) return false;
-    return matchesSearch(
-      [
-        facility.company,
-        facility.aliases.join(' '),
-        facility.municipality,
-        facility.province,
-        facility.barangay,
-        facility.address,
-        facility.registers.join(' '),
-        facility.clearanceNumbers.join(' '),
-      ],
-      filters.search,
-    );
-  });
+  return useMemo(() => (clearances ? filterClearances(clearances, filters) : []), [clearances, filters]);
 }
 
 export function useFilteredFacilities(): Facility[] {
-  const data = useDashboard((state) => state.data);
+  const facilities = useDashboard((state) => state.data?.facilities);
   const filters = useDashboard((state) => state.filters);
-  return useMemo(() => (data ? filterFacilities(data.facilities, filters) : []), [data, filters]);
+  return useMemo(() => (facilities ? filterFacilities(facilities, filters) : []), [facilities, filters]);
 }
 
 export function useSwm(): SwmDataset | null {

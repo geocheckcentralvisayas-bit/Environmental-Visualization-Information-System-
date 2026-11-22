@@ -66,10 +66,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (!Number.isFinite(iterations) || iterations < 1_000 || iterations > 1_000_000 || !salt || !expected) return false;
   const actual = await derivePassword(password, salt, iterations);
   if (actual.length !== expected.length) return false;
+  // Portable constant-time compare: crypto.subtle.timingSafeEqual is Workers-only.
   let diff = 0;
-  for (let index = 0; index < actual.length; index += 1) {
-    diff |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
-  }
+  for (let i = 0; i < actual.length; i += 1) diff |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
 }
 
@@ -77,12 +76,16 @@ export async function verifyPassword(password: string, stored: string): Promise<
  * Spend the same PBKDF2 cost for unknown or inactive accounts. Without this,
  * response time would reveal whether a username exists.
  */
-const DUMMY_PASSWORD_HASH =
-  'pbkdf2$210000$f5038cd53467b405906aac273c7b4292$dec84416d13571af829fbdeca517225fc6c21fa57367892e488cffea15f0b1e8';
+async function generateDummyHash(): Promise<string> {
+  // Generate a fresh random salt each time to avoid timing patterns
+  const salt = toHex(crypto.getRandomValues(new Uint8Array(16)).buffer);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${'0'.repeat(64)}`;
+}
 
 export async function burnPasswordCheck(password: string): Promise<void> {
   try {
-    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    const dummyHash = await generateDummyHash();
+    await verifyPassword(password, dummyHash);
   } catch {
     /* verification failures are intentionally ignored */
   }
@@ -282,7 +285,16 @@ export async function logActivity(
 /* login rate limiting                                                 */
 /* ------------------------------------------------------------------ */
 
-export async function assertLoginAllowed(env: Env, bucket: string): Promise<number> {
+/**
+ * Creates a rate-limit bucket keyed by username only.
+ * IP-based buckets are vulnerable to rotation attacks.
+ */
+function usernameBucket(username: string): string {
+  return `user:${username.toLowerCase()}`;
+}
+
+export async function assertLoginAllowed(env: Env, username: string): Promise<number> {
+  const bucket = usernameBucket(username);
   const row = await env.DB.prepare('SELECT count, reset_at FROM login_attempts WHERE bucket = ?')
     .bind(bucket)
     .first<{ count: number; reset_at: number }>();
@@ -291,7 +303,8 @@ export async function assertLoginAllowed(env: Env, bucket: string): Promise<numb
   return Math.max(1, Math.ceil((row.reset_at - Date.now()) / 1000));
 }
 
-export async function registerLoginFailure(env: Env, bucket: string): Promise<void> {
+export async function registerLoginFailure(env: Env, username: string): Promise<void> {
+  const bucket = usernameBucket(username);
   const now = Date.now();
   const resetAt = now + ATTEMPT_WINDOW_MS;
   await env.DB.prepare(
@@ -304,7 +317,8 @@ export async function registerLoginFailure(env: Env, bucket: string): Promise<vo
     .run();
 }
 
-export async function clearLoginFailures(env: Env, bucket: string): Promise<void> {
+export async function clearLoginFailures(env: Env, username: string): Promise<void> {
+  const bucket = usernameBucket(username);
   await env.DB.prepare('DELETE FROM login_attempts WHERE bucket = ?').bind(bucket).run();
 }
 

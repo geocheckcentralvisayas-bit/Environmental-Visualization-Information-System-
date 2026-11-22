@@ -18,7 +18,7 @@ export const SpatialFlagsSchema = z.object({
 export const PermitSchema = z.object({
   id: z.string(),
   type: z.enum(['DP', 'PTO']),
-  permitNo: z.string(),
+  permitNo: z.string().min(1),
   appNo: z.string(),
   year: z.number().int(),
   company: z.string(),
@@ -574,7 +574,7 @@ export const PCOPermitCrossRefSchema = z.object({
   company: z.string(),
   establishment: z.string(),
   permitType: z.enum(['DP', 'PTO']),
-  permitNo: z.string(),
+  permitNo: z.string().min(1),
   permitStatus: z.string(),
   permitExpiry: z.string().nullable(),
   hwRegistrations: z.array(z.object({

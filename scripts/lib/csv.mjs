@@ -1,4 +1,4 @@
-/** Minimal RFC-4180 CSV parser (handles quoted fields, escaped quotes and CRLF). */
+/** RFC-4180 CSV parser (handles quoted fields, escaped quotes, CRLF, and newlines within quoted fields per §2.6). */
 export function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -15,27 +15,35 @@ export function parseCsv(text) {
         } else {
           inQuotes = false;
         }
+      } else if (ch === '\r' && text[i + 1] === '\n') {
+        // Handle CRLF within quoted fields (RFC 4180 §2.6) - treat as single newline
+        field += '\n';
+        i += 1;
       } else {
+        // Inside quotes: allow all characters including newlines (RFC 4180 §2.6)
         field += ch;
       }
       continue;
     }
+    // Not in quotes
     if (ch === '"') {
       inQuotes = true;
     } else if (ch === ',') {
       row.push(field);
       field = '';
     } else if (ch === '\n') {
+      // Row delimiter (only when not in quotes per RFC 4180 §2.6)
       row.push(field);
       rows.push(row);
       row = [];
       field = '';
     } else if (ch === '\r') {
-      // ignore, handled by \n
+      // ignore, handled by \n (CRLF)
     } else {
       field += ch;
     }
   }
+  // Handle trailing row without newline
   if (field.length > 0 || row.length > 0) {
     row.push(field);
     rows.push(row);

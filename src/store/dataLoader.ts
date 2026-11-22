@@ -3,6 +3,12 @@ import type { PCORecord, PCOAnalysis } from '../types';
 
 import { dataUrl } from '../lib/api';
 
+// Call sites: dataLoader.ts exports loadDashboardData used by src/store/index.ts (legacy useDashboard hook)
+// Data schemas: uses useDataStore.setState to write { loading, error, progress, data, pcoRecords, pcoAnalysis, optionalErrors }
+// User instruction: "continue to fix the critical bugs , high bugs, medium bugs, and low bugs now from the bug audit report"
+
+const optionalFailures: string[] = [];
+
 async function fetchJson<T>(file: string): Promise<T> {
   const response = await fetch(dataUrl(file), { credentials: 'include' });
   if (!response.ok) throw new Error(`Could not load ${file} (HTTP ${response.status})`);
@@ -12,7 +18,8 @@ async function fetchJson<T>(file: string): Promise<T> {
 async function fetchOptionalJson<T>(file: string, fallback: T): Promise<T> {
   try {
     return await fetchJson<T>(file);
-  } catch {
+  } catch (error) {
+    optionalFailures.push(`${file}: ${error instanceof Error ? error.message : 'unknown error'}`);
     return fallback;
   }
 }
@@ -43,7 +50,8 @@ export async function loadDashboardData(): Promise<void> {
   const { loading, data } = useDataStore.getState();
   if (loading || data) return;
 
-  useDataStore.setState({ loading: true, error: null, progress: 'Opening registers…' });
+  optionalFailures.length = 0;
+  useDataStore.setState({ loading: true, error: null, optionalErrors: [], progress: 'Opening registers…' });
   try {
     const meta = await fetchJson<any>('meta.json');
     useDataStore.setState({ progress: 'Loading permit records…' });
@@ -76,6 +84,7 @@ export async function loadDashboardData(): Promise<void> {
     } catch {
       // PCO data is optional; ignore errors
     }
+    useDataStore.setState({ optionalErrors: [...optionalFailures] });
   } catch (error) {
     useDataStore.setState({
       loading: false,

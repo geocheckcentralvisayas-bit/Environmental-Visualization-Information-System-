@@ -52,7 +52,13 @@ export const ROLES: Role[] = ['extraction', 'rd', 'emed', 'cpd', 'mis', 'viewer'
  */
 let cachedSession: Session | null = null;
 
+/** Must match the worker's SESSION_TTL_HOURS default; failing closed if the server uses a longer TTL is safe. */
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+
 export function getSession(): Session | null {
+  if (cachedSession && cachedSession.at + SESSION_TTL_MS <= Date.now()) {
+    cachedSession = null;
+  }
   return cachedSession;
 }
 
@@ -84,9 +90,12 @@ export async function login(username: string, password: string): Promise<Session
 export async function logout(): Promise<void> {
   cachedSession = null;
   try {
-    await apiFetch('/logout', { method: 'POST' });
-  } catch {
-    /* best effort */
+    const response = await apiFetch('/logout', { method: 'POST' });
+    if (!response.ok) throw new Error(`Logout failed (HTTP ${response.status})`);
+  } catch (error) {
+    // The server may have already revoked the session (the cookie is what
+    // matters); always clear local state so the UI never stays signed in.
+    console.warn('Server logout failed; local session cleared anyway.', error);
   }
 }
 
