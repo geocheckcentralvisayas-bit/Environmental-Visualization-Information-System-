@@ -92,6 +92,9 @@ export async function login(username: string, password: string): Promise<Session
   if (response.status === 401) return null;
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (response.status >= 500 && !body?.error) {
+      throw new Error('Cannot reach the sign-in service. Start `npm run api:dev` or check the deployed Worker.');
+    }
     throw new Error(body?.error || `Sign-in failed (HTTP ${response.status}).`);
   }
   cachedSession = (await response.json()) as Session;
