@@ -78,11 +78,22 @@ export async function loadSession(): Promise<Session | null> {
 }
 
 export async function login(username: string, password: string): Promise<Session | null> {
-  const response = await apiFetch('/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password }),
-  });
-  if (!response.ok) return null;
+  let response: Response;
+  try {
+    response = await apiFetch('/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  } catch {
+    throw new Error('Cannot reach the sign-in service. Start `npm run api:dev` or check the deployed Worker.');
+  }
+  // 401 is the only status that means the credentials were wrong; anything
+  // else is an environment problem and must not be reported as bad credentials.
+  if (response.status === 401) return null;
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || `Sign-in failed (HTTP ${response.status}).`);
+  }
   cachedSession = (await response.json()) as Session;
   return cachedSession;
 }

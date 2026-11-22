@@ -13,7 +13,14 @@ export function LoginGate({ onLogin, notice }: { onLogin: (session: Session) => 
     event.preventDefault();
     setBusy(true);
     setError('');
-    const session = await login(username, password);
+    let session: Awaited<ReturnType<typeof login>> = null;
+    try {
+      session = await login(username, password);
+    } catch (cause) {
+      setBusy(false);
+      setError(cause instanceof Error ? cause.message : 'Sign-in failed.');
+      return;
+    }
     setBusy(false);
     if (!session) {
       setError('Invalid username or password.');

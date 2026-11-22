@@ -102,7 +102,14 @@ useEffect(() => {
     e.preventDefault();
     setExportBusy(true);
     setExportError('');
-    const ok = await tryGateLogin(exportUser, exportPass);
+    let ok = false;
+    try {
+      ok = await tryGateLogin(exportUser, exportPass);
+    } catch (cause) {
+      setExportBusy(false);
+      setExportError(cause instanceof Error ? cause.message : 'Authorised account required.');
+      return;
+    }
     setExportBusy(false);
     if (!ok) {
       setExportError('Authorised account required.');
