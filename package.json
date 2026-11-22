@@ -1,7 +1,7 @@
 {
   "name": "envis-dashboard",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.3.2",
   "type": "module",
   "description": "DENR-EMB Region VII Environmental Permits Monitoring Dashboard",
   "scripts": {
@@ -23,6 +23,8 @@
     "data:ecc:apply": "node scripts/apply-ecc-ultralist.mjs",
     "data:all": "npm run data:fetch && npm run data:spatial && npm run data:build && npm run data:ecc && npm run data:aqms && npm run data:emed && npm run data:pco && npm run data:pco:analysis && npm run data:legal && npm run data:swm && npm run data:trim && npm run data:validate",
     "test": "node --import tsx --test tests/*.test.ts",
+    "version:bump": "node scripts/bump-version.mjs",
+    "prepare": "git config core.hooksPath .githooks",
     "data:validate": "tsx scripts/validate-output.ts",
     "api:dev": "wrangler dev --config worker/wrangler.toml --local --port 8787",
     "api:db": "wrangler d1 migrations apply envis --local --config worker/wrangler.toml",

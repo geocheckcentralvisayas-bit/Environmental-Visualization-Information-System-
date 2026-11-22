@@ -1,0 +1,7 @@
+#!/bin/sh
+# Every commit carries a new patch version so each push is traceable.
+# Disable for one commit with: NV_SKIP_VERSION_BUMP=1 git commit ...
+[ -n "$NV_SKIP_VERSION_BUMP" ] && exit 0
+git diff --cached --quiet && exit 0
+node scripts/bump-version.mjs || exit 1
+git add package.json package-lock.json
