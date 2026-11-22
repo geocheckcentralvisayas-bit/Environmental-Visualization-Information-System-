@@ -544,6 +544,14 @@ table tbody tr:hover { background: rgba(16,185,129,0.06); }
 html.light { color-scheme: light; }
 html.light .app-shell { background: #f8fafc !important; }
 html.light .bg-ink-950, html.light .bg-ink-900, html.light .bg-ink-850, html.light .bg-ink-800 { background: #ffffff !important; }
+/* Raw dark surfaces (header bar, legal case drawer, Pixel Office gate) would
+   keep their dark background in light mode, leaving the dark-themed text
+   unreadable. Convert them with the rest of the theme. */
+html.light header.no-print,
+html.light .bg-\[\#07110e\],
+html.light .bg-\[\#050d0b\]\/85,
+html.light .bg-\[\#071820\] { background: rgba(255, 255, 255, 0.92) !important; }
+html.light header.no-print { border-bottom-color: rgba(15, 23, 42, 0.08) !important; }
 html.light .text-slate-50, html.light .text-slate-100, html.light .text-slate-200 { color: #0f172a !important; }
 html.light .text-slate-300 { color: #334155 !important; }
 html.light .text-slate-400 { color: #475569 !important; }
