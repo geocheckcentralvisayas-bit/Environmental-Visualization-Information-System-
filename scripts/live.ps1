@@ -9,8 +9,10 @@
     -Action restart    Stop the running server and start it again.
     -Action status     Show whether the site answers and what the logon task is doing.
 
-    The site is served by Vite at http://127.0.0.1:5173 (dev server, live reload).
-    Logs go to logs\live.log. Set ENVIS_HOST / ENVIS_PORT to change the binding.
+    The site is served by Vite at http://127.0.0.1:5173 (dev server, live reload),
+    the API by the local Cloudflare Worker at http://127.0.0.1:8787.
+    Both are supervised and restarted if they exit.
+    Logs go to logs\live.log. Set ENVIS_HOST / ENVIS_PORT / ENVIS_API_PORT to change the bindings.
 #>
 [CmdletBinding()]
 param(
@@ -25,6 +27,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $port = if ($env:ENVIS_PORT) { [int]$env:ENVIS_PORT } else { 5173 }
 $hostName = if ($env:ENVIS_HOST) { $env:ENVIS_HOST } else { '127.0.0.1' }
 $url = "http://${hostName}:$port"
+$apiPort = if ($env:ENVIS_API_PORT) { [int]$env:ENVIS_API_PORT } else { 8787 }
+$apiUrl = "http://127.0.0.1:${apiPort}/api/health"
 $logFile = Join-Path $root 'logs\live.log'
 
 function Resolve-Node {
@@ -56,11 +60,18 @@ function Stop-Live {
         Write-Host "Stopping process on port $port (pid $($listener.OwningProcess))..." -ForegroundColor DarkYellow
         Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue
     }
+
+    $apiListeners = Get-NetTCPConnection -LocalPort $apiPort -State Listen -ErrorAction SilentlyContinue
+    foreach ($listener in $apiListeners) {
+        Write-Host "Stopping process on port $apiPort (pid $($listener.OwningProcess))..." -ForegroundColor DarkYellow
+        Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Test-Live {
+    param([string]$Target = $url)
     try {
-        $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3
+        $response = Invoke-WebRequest -Uri $Target -UseBasicParsing -TimeoutSec 3
         return $response.StatusCode -eq 200
     } catch {
         return $false
@@ -101,7 +112,7 @@ function Install-Task {
 
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
         -Principal $principal -Force `
-        -Description 'Serves the ENVIS Region VII dashboard on http://127.0.0.1:5173 and keeps it running.' | Out-Null
+        -Description 'Serves the ENVIS Region VII dashboard (:5173) and its API (:8787), and keeps both running.' | Out-Null
 
     Start-ScheduledTask -TaskName $TaskName
     Write-Host "Logon task '$TaskName' registered and started." -ForegroundColor Green
@@ -127,6 +138,13 @@ function Show-Status {
         Write-Host "Site      : $url  [LIVE]" -ForegroundColor Green
     } else {
         Write-Host "Site      : $url  [DOWN]" -ForegroundColor Red
+    }
+
+    $apiLive = Test-Live $apiUrl
+    if ($apiLive) {
+        Write-Host "API       : http://127.0.0.1:$apiPort  [LIVE]" -ForegroundColor Green
+    } else {
+        Write-Host "API       : http://127.0.0.1:$apiPort  [DOWN]" -ForegroundColor Red
     }
 
     $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue

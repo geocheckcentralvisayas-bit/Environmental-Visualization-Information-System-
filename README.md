@@ -237,6 +237,10 @@ npm run api:dev         # Worker API on http://localhost:8787
 npm run dev             # Vite on http://localhost:5173 (proxies /api)
 ```
 
+On Windows, `npm run live:autostart` registers a logon task that keeps **both**
+processes running and restarts them if they exit. Use `npm run live:status` to
+check them and `npm run live:restart` after changing Worker code.
+
 `worker/.dev.vars` is git-ignored. Production `ALLOWED_ORIGINS` in
 `worker/wrangler.toml` lists only the Pages origin; localhost is never allowed
 on the deployed Worker.
