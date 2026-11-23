@@ -87,6 +87,8 @@ export function MapView({
   const overlayRef = useRef<Map<string, L.GeoJSON>>(new Map());
   const overlayData = useRef<Map<string, unknown>>(new Map());
   const overlayRequests = useRef<Map<string, Promise<unknown>>>(new Map());
+  const layerErrorsRef = useRef<Record<string, string>>({});
+  const opacityRef = useRef(0.62);
   const filteredFacilities = useFilteredFacilities();
   const filteredPermits = useFilteredPermits();
   const swm = useDashboard((state) => state.swm);
@@ -106,6 +108,7 @@ export function MapView({
   const [layerErrors, setLayerErrors] = useState<Record<string, string>>({});
   const [reloadToken, setReloadToken] = useState(0);
   const [ready, setReady] = useState(false);
+  opacityRef.current = opacity;
 
   const selectedKey = selectedLayers ? [...selectedLayers].sort().join('|') : null;
 
@@ -158,6 +161,8 @@ export function MapView({
     resizeRef.current = resize;
     return () => {
       resize.disconnect();
+      overlayRef.current.clear();
+      overlayRequests.current.clear();
       map.remove();
       mapRef.current = null;
     };
@@ -468,10 +473,19 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, mode, enableFocus, showPoints]);
 
+  // Opacity is a visual concern only: restyle existing layers instead of
+  // reloading them. Re-fetching multi-megabyte DENR layers on every slider tick
+  // (and aborting them) was surfacing as bogus "connection" failures.
+  useEffect(() => {
+    overlayRef.current.forEach((layer, id) => {
+      const meta = layers.find((entry) => entry.id === id);
+      if (meta) layer.setStyle((feature) => styleForLayer(meta, feature?.properties ?? {}, opacity));
+    });
+  }, [opacity, layers]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const controller = new AbortController();
     let cancelled = false;
 
     const loadLayer = async (meta: SpatialLayer): Promise<unknown> => {
@@ -480,7 +494,9 @@ export function MapView({
       const inflight = overlayRequests.current.get(meta.id);
       if (inflight) return inflight;
       const request = (async () => {
-        const response = await fetch(dataUrl(`geojson/${meta.file}`), { credentials: 'include', signal: controller.signal });
+        // Deliberately no AbortSignal. These layers can be 2-5 MB; aborting them
+        // when an unrelated dependency changed was reported as a failed load.
+        const response = await fetch(dataUrl(`geojson/${meta.file}`), { credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${meta.name}`);
         return response.json() as Promise<unknown>;
       })();
@@ -504,13 +520,8 @@ export function MapView({
         }
       }
 
-      for (const [id, layer] of current.entries()) {
-        const meta = layers.find((entry) => entry.id === id);
-        if (meta) layer.setStyle((feature) => styleForLayer(meta, feature?.properties ?? {}, opacity));
-      }
-
       const toLoad = [...activeLayers].filter(
-        (id) => !current.has(id) && !layerErrors[id] && layers.some((layer) => layer.id === id),
+        (id) => !current.has(id) && !layerErrorsRef.current[id] && layers.some((layer) => layer.id === id),
       );
       if (!toLoad.length) return;
 
@@ -522,10 +533,11 @@ export function MapView({
           if (!meta) return;
           try {
             const data = await loadLayer(meta);
-            if (cancelled) return;
+            // Another run may have finished first, or the map was rebuilt.
+            if (cancelled || current.has(id)) return;
             const geo = L.geoJSON(data as never, {
               pane: 'overlays',
-              style: (feature) => styleForLayer(meta, feature?.properties ?? {}, opacity),
+              style: (feature) => styleForLayer(meta, feature?.properties ?? {}, opacityRef.current),
               onEachFeature: (feature, layer) => {
                 const properties = feature.properties ?? {};
                 const raw =
@@ -537,32 +549,32 @@ export function MapView({
                 layer.bindTooltip(String(label), { sticky: true, direction: 'top', opacity: 0.95 });
                 layer.on('mouseover', () => {
                   if (layer instanceof L.Path) {
-                    layer.setStyle({ weight: 2, opacity: 1, fillOpacity: Math.min(0.85, opacity + 0.16) });
+                    layer.setStyle({ weight: 2, opacity: 1, fillOpacity: Math.min(0.85, opacityRef.current + 0.16) });
                     layer.bringToFront();
                   }
                 });
                 layer.on('mouseout', () => {
-                  if (layer instanceof L.Path) layer.setStyle(styleForLayer(meta, properties, opacity));
+                  if (layer instanceof L.Path) layer.setStyle(styleForLayer(meta, properties, opacityRef.current));
                 });
               },
             });
             geo.addTo(map!);
             current.set(id, geo);
-            setLayerErrors((previous) => {
-              if (!(id in previous)) return previous;
-              const next = { ...previous };
+            if (id in layerErrorsRef.current) {
+              const next = { ...layerErrorsRef.current };
               delete next[id];
-              return next;
-            });
+              layerErrorsRef.current = next;
+              setLayerErrors(next);
+            }
             fitLayerIfOffscreen(map!, meta);
           } catch (error) {
             if (cancelled) return;
-            setLayerErrors((previous) => ({
-              ...previous,
-              [id]: error instanceof Error ? error.message : `Could not load ${meta.name}`,
-            }));
+            const message = error instanceof Error ? error.message : `Could not load ${meta.name}`;
+            const next = { ...layerErrorsRef.current, [id]: message };
+            layerErrorsRef.current = next;
+            setLayerErrors(next);
           } finally {
-            if (!cancelled) setPendingLayers((previous) => previous.filter((entry) => entry !== id));
+            setPendingLayers((previous) => previous.filter((entry) => entry !== id));
           }
         }),
       );
@@ -571,18 +583,16 @@ export function MapView({
     syncLayers();
     return () => {
       cancelled = true;
-      controller.abort();
     };
-  }, [activeLayers, layers, layerErrors, opacity, ready, reloadToken]);
+  }, [activeLayers, layers, ready, reloadToken]);
 
   const retryLayer = (id: string) => {
     overlayData.current.delete(id);
     overlayRequests.current.delete(id);
-    setLayerErrors((previous) => {
-      const next = { ...previous };
-      delete next[id];
-      return next;
-    });
+    const next = { ...layerErrorsRef.current };
+    delete next[id];
+    layerErrorsRef.current = next;
+    setLayerErrors(next);
     setReloadToken((token) => token + 1);
   };
 
