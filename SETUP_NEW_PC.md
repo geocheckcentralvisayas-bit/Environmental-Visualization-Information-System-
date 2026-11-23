@@ -89,18 +89,31 @@ Re-run `api:upload` any time `public/data/*.json` changes.
 
 ## 5. Start the app
 
-Use two terminals in the project root:
-
 ```bash
-# Terminal 1 — authenticated API on port 8787
-npm run api:dev
-
-# Terminal 2 — dashboard on port 5173
 npm run dev
 ```
 
-Open **http://localhost:5173** and sign in with an account from
+`npm run dev` is now self-sufficient: a `predev` hook starts the local API
+(Worker on port 8787) if it is not already running, then starts Vite on port
+5173. Open **http://localhost:5173** and sign in with an account from
 `CREDENTIALS.md`.
+
+The API keeps running in the background after the hook exits and logs to
+`logs/api-dev.log`. If you prefer to run the two services yourself, or want
+both supervised with automatic restarts, use:
+
+```bash
+# Option A — one command, both services supervised
+npm run live
+
+# Option B — two terminals
+npm run api:dev   # API on 8787
+npm run dev       # Vite on 5173
+```
+
+Never run `npm run api:dev` while another Worker is already on port 8787:
+overlapping `wrangler dev` instances corrupt the local D1 state with
+`SQLITE_BUSY`.
 
 ## 6. What should be visible
 
