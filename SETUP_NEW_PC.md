@@ -115,6 +115,10 @@ Never run `npm run api:dev` while another Worker is already on port 8787:
 overlapping `wrangler dev` instances corrupt the local D1 state with
 `SQLITE_BUSY`.
 
+The GitHub Pages deployment is **not** currently configured: the repository is
+private on a free personal account, which cannot publish Pages sites. Local and
+LAN hosting are therefore the supported modes unless the account is upgraded.
+
 ## 6. Share the dashboard on the office LAN
 
 ```bash
@@ -139,6 +143,32 @@ COOKIE_SAME_SITE = "Lax"
 `http://192.168.x.x`, which makes every dataset request return 401 after a
 successful login. Keep these values local: **never** enable `ALLOW_LAN_ORIGINS`
 or disable `COOKIE_SECURE` on a deployed Worker.
+
+### Auto-start after you sign in
+
+To have the LAN server come back automatically after a reboot **without running
+a command each time**:
+
+```bash
+npm run live:lan:autostart
+```
+
+This registers a Windows logon task named **"ENVIS Dashboard Live (LAN)"**.
+After you sign in, both Vite (bound to `0.0.0.0`) and the API start in the
+background under a supervisor that restarts them if they exit. Logs go to
+`logs\live.log`.
+
+Useful commands:
+
+```bash
+npm run live:lan:status    # is the site up, and is the task running?
+npm run live:lan:restart   # restart both services
+npm run live:lan:remove    # remove the auto-start task and stop everything
+```
+
+The task only runs **after you log in** and only while the computer is powered
+on — a full shutdown still takes the site down. It cannot make the dashboard
+available from a different computer if this one is off.
 
 If colleagues cannot connect, allow inbound TCP port 5173 in Windows Firewall
 (run this in an **elevated** PowerShell on the hosting computer):

@@ -19,14 +19,33 @@ param(
     [ValidateSet('run', 'install', 'uninstall', 'restart', 'status')]
     [string]$Action = 'status',
 
-    [string]$TaskName = 'ENVIS Dashboard Live'
+    [string]$TaskName = '',
+
+    [switch]$Lan
 )
+
+if (-not $TaskName) {
+    $TaskName = if ($Lan) { 'ENVIS Dashboard Live (LAN)' } else { 'ENVIS Dashboard Live' }
+}
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $port = if ($env:ENVIS_PORT) { [int]$env:ENVIS_PORT } else { 5173 }
 $hostName = if ($env:ENVIS_HOST) { $env:ENVIS_HOST } else { '127.0.0.1' }
-$url = "http://${hostName}:$port"
+if ($Lan) {
+    # Bind to every interface so colleagues on the same network can connect.
+    $env:ENVIS_HOST = '0.0.0.0'
+    $hostName = '0.0.0.0'
+}
+$displayHost = $hostName
+if ($Lan) {
+    $lanIp = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown' } |
+        Select-Object -First 1 -ExpandProperty IPAddress
+    if ($lanIp) { $displayHost = $lanIp }
+}
+$url = "http://${displayHost}:$port"
+$probeUrl = "http://127.0.0.1:$port"
 $apiPort = if ($env:ENVIS_API_PORT) { [int]$env:ENVIS_API_PORT } else { 8787 }
 $apiUrl = "http://127.0.0.1:${apiPort}/api/health"
 $logFile = Join-Path $root 'logs\live.log'
@@ -69,7 +88,7 @@ function Stop-Live {
 }
 
 function Test-Live {
-    param([string]$Target = $url)
+    param([string]$Target = $probeUrl)
     try {
         $response = Invoke-WebRequest -Uri $Target -UseBasicParsing -TimeoutSec 3
         return $response.StatusCode -eq 200
@@ -92,9 +111,10 @@ function Install-Task {
         Write-Host "Replacing existing task '$TaskName'..." -ForegroundColor DarkYellow
     }
 
+    $lanArg = if ($Lan) { ' -Lan' } else { '' }
     $action = New-ScheduledTaskAction `
         -Execute 'powershell.exe' `
-        -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`" -Action run" `
+        -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`" -Action run$lanArg" `
         -WorkingDirectory $root
 
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
@@ -112,7 +132,7 @@ function Install-Task {
 
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
         -Principal $principal -Force `
-        -Description 'Serves the ENVIS Region VII dashboard (:5173) and its API (:8787), and keeps both running.' | Out-Null
+        -Description "Serves the ENVIS Region VII dashboard ($url) and its API (:8787), and keeps both running." | Out-Null
 
     Start-ScheduledTask -TaskName $TaskName
     Write-Host "Logon task '$TaskName' registered and started." -ForegroundColor Green
@@ -132,6 +152,9 @@ function Uninstall-Task {
 }
 
 function Show-Status {
+    if ($Lan) {
+        Write-Host "Mode      : LAN (shared on the network)" -ForegroundColor DarkGray
+    }
     $live = Test-Live
 
     if ($live) {
