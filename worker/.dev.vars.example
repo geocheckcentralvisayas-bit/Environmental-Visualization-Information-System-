@@ -1,5 +1,9 @@
 # Copy this file to worker/.dev.vars before running `npm run api:dev`.
 # `.dev.vars` is git-ignored and must never be committed.
 ALLOWED_ORIGINS = "https://geocheckcentralvisayas-bit.github.io,http://localhost:5173,http://localhost:4173,http://localhost:4181,http://127.0.0.1:5173,http://127.0.0.1:4173,http://127.0.0.1:4181"
+# Share the dashboard on the office LAN (`npm run dev:lan`). Accepts private
+# network origins (10.x, 172.16-31.x, 192.168.x) on ports 5173/4173/4181 only.
+# Keep this "false" (or remove it) on any deployed Worker.
+ALLOW_LAN_ORIGINS = "false"
 COOKIE_SAME_SITE = "Lax"
 COOKIE_SECURE = "false"

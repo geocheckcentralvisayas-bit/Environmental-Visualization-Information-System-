@@ -4,6 +4,13 @@ export interface Env {
   SESSION_TTL_HOURS: string;
   COOKIE_NAME: string;
   ALLOWED_ORIGINS: string;
+  /**
+   * Development/LAN only. When "true", state-changing requests from a private
+   * network address on a dashboard port (5173/4173/4181) are accepted, so the
+   * site can be shared on the office LAN without hard-coding each DHCP address.
+   * Never enable this on a deployed Worker.
+   */
+  ALLOW_LAN_ORIGINS?: string;
   COOKIE_SAME_SITE?: string;
   COOKIE_SECURE?: string;
 }

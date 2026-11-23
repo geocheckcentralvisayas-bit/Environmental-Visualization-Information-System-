@@ -115,7 +115,42 @@ Never run `npm run api:dev` while another Worker is already on port 8787:
 overlapping `wrangler dev` instances corrupt the local D1 state with
 `SQLITE_BUSY`.
 
-## 6. What should be visible
+## 6. Share the dashboard on the office LAN
+
+```bash
+npm run dev:lan
+```
+
+This binds Vite to `0.0.0.0` and prints the links to give your colleagues, for
+example `http://192.168.190.21:5173`. The API stays on `127.0.0.1:8787` and is
+reached through Vite's `/api` proxy, so it is never exposed to the network.
+Login credentials are still required.
+
+Two settings in `worker/.dev.vars` are needed for LAN use (both are documented
+in `worker/.dev.vars.example`):
+
+```
+ALLOW_LAN_ORIGINS = "true"   # accepts private-network origins on dashboard ports
+COOKIE_SECURE = "false"      # plain HTTP LAN addresses reject Secure cookies
+COOKIE_SAME_SITE = "Lax"
+```
+
+`Secure` cookies work on `http://localhost` but are silently dropped on
+`http://192.168.x.x`, which makes every dataset request return 401 after a
+successful login. Keep these values local: **never** enable `ALLOW_LAN_ORIGINS`
+or disable `COOKIE_SECURE` on a deployed Worker.
+
+If colleagues cannot connect, allow inbound TCP port 5173 in Windows Firewall
+(run this in an **elevated** PowerShell on the hosting computer):
+
+```powershell
+New-NetFirewallRule -DisplayName "ENVIS Dashboard (LAN)" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Allow -Profile Private
+```
+
+Do **not** port-forward this dev server to the internet. It is meant for a
+trusted office network.
+
+## 7. What should be visible
 
 - Navigation includes **Overview, Ambient Corner, Pixel Office**, all permit
   and compliance tabs.
@@ -124,7 +159,7 @@ overlapping `wrangler dev` instances corrupt the local D1 state with
 - Pixel Office is visible only to `mis` and `rd` accounts and issues a
   15-minute session.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
@@ -135,7 +170,7 @@ overlapping `wrangler dev` instances corrupt the local D1 state with
 | Pixel Office shows a broken image | Confirm `public/pixel-office/characters/` exists, or rebuild the Pixel Office app and copy its `dist` over. |
 | Data looks old | Run `npm run data:all` (needs network access to the source sheets), then `npm run api:upload`. |
 
-## 8. Keep secrets out of Git
+## 9. Keep secrets out of Git
 
 ```bash
 git status          # CREDENTIALS.md and .dev.vars must not appear

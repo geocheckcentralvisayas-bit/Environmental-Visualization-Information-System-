@@ -16,6 +16,37 @@ function allowedOrigins(env: Env): string[] {
   return env.ALLOWED_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean);
 }
 
+/** RFC 1918 / loopback IPv4 only. */
+function isPrivateHost(hostname: string): boolean {
+  const parts = hostname.split('.').map((part) => Number(part));
+  if (parts.length !== 4) return false;
+  if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b] = parts;
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 127;
+}
+
+const LAN_PORTS = new Set(['5173', '4173', '4181']);
+
+/**
+ * An origin is allowed when it is listed explicitly, or — only when the
+ * development flag `ALLOW_LAN_ORIGINS` is enabled — when it is a private-network
+ * address on one of the dashboard's ports. The flag lives in `worker/.dev.vars`,
+ * which is git-ignored and never deployed, so production stays on the explicit
+ * allow-list.
+ */
+function originPermitted(origin: string, env: Env): boolean {
+  if (allowedOrigins(env).includes(origin)) return true;
+  if ((env.ALLOW_LAN_ORIGINS ?? '').toLowerCase() !== 'true') return false;
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'http:') return false;
+    if (!LAN_PORTS.has(url.port)) return false;
+    return isPrivateHost(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function json(data: unknown, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json; charset=utf-8');
@@ -36,13 +67,13 @@ export function fail(status: number, message: string, extra: Record<string, unkn
 export function isOriginAllowed(request: Request, env: Env): boolean {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
-  return allowedOrigins(env).includes(origin);
+  return originPermitted(origin, env);
 }
 
 export function corsHeaders(request: Request, env: Env): Headers {
   const headers = new Headers();
   const origin = request.headers.get('Origin');
-  if (origin && allowedOrigins(env).includes(origin)) {
+  if (origin && originPermitted(origin, env)) {
     headers.set('Access-Control-Allow-Origin', origin);
     headers.set('Access-Control-Allow-Credentials', 'true');
     headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
