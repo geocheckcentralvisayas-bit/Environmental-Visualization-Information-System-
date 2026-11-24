@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import {
   Building2, CalendarClock, ChevronRight, ClipboardCheck, Database, Droplets, FileDown,
   FileCheck2, FlaskConical, Gavel, Info, LayoutDashboard, Layers3, ListChecks, Map as MapIcon, Menu, PanelLeftClose,
-  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind, Bot, BarChart3,
+  Search, ShieldAlert, ShieldCheck, Table2, X, ExternalLink, Radio, Sun, Moon, Recycle, Wind, Bot, BarChart3, Target,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useDashboard, useFilteredPermits, useFilteredSites } from '../store/useDashboard';
@@ -21,6 +21,12 @@ const NAV: { group: string; items: { id: PageId; label: string; icon: typeof Lay
     { id: 'emed', label: 'EMED Monitoring', icon: BarChart3, badge: 'NEW' },
     { id: 'pixel-office', label: 'Pixel Office', icon: Bot },
   ] },
+  {
+    group: 'Planning',
+    items: [
+      { id: 'planning', label: 'Planning Accomplishments 2026', icon: Target, badge: 'NEW' },
+    ],
+  },
   {
     group: 'Permits',
     items: [
@@ -94,6 +100,7 @@ const PAGE_META: Record<PageId, { title: string; subtitle: string }> = {
   swm: { title: 'Solid waste management', subtitle: 'MRF status, disposal facilities and LGU coverage across Central Visayas' },
   ambient: { title: 'Ambient corner', subtitle: 'Air quality monitoring — live and historical PM2.5, PM10 and manual AQI' },
   emed: { title: 'EMED monitoring dashboards', subtitle: 'CY 2026 KRA performance, inspector workload and every worksheet from the monitoring workbook' },
+  planning: { title: 'Planning accomplishments 2026', subtitle: 'Every indicator, monthly target, accomplishment, remark and means of verification from the CY 2026 planning workbook — updated live' },
   'pixel-office': { title: 'Pixel office', subtitle: 'Animated EMB workplace — walk the floor, meet the team and chat with their bots' },
   clearances: { title: 'ECC & CNC clearances', subtitle: 'Environmental compliance and non-coverage certificates cross-referenced with DP and PTO' },
   'ecc-ultralist': { title: 'ECC & CNC ultralist', subtitle: 'Approved EIA clearances for Cebu and Bohol intercrossed with DP, PTO and hazardous waste' },

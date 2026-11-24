@@ -31,14 +31,18 @@ const PORT = Number(process.env.ENVIS_PORT || 5173);
 const VITE_BIN = join(root, 'node_modules', 'vite', 'bin', 'vite.js');
 const API_PORT = Number(process.env.ENVIS_API_PORT || 8787);
 const WRANGLER_BIN = join(root, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+const PLANNING_PORT = Number(process.env.PLANNING_PORT || 8788);
 
 let child = null;
 let apiChild = null;
+let planningChild = null;
 let stopping = false;
 let attempt = 0;
 let apiAttempt = 0;
+let planningAttempt = 0;
 let startedAt = 0;
 let apiStartedAt = 0;
+let planningStartedAt = 0;
 
 function log(message) {
   const line = `[${new Date().toISOString()}] ${message}`;
@@ -147,16 +151,58 @@ function startApi() {
   });
 }
 
+function startPlanning() {
+  if (stopping) return;
+
+  planningStartedAt = Date.now();
+  log(`starting planning watcher -> http://127.0.0.1:${PLANNING_PORT}`);
+
+  planningChild = spawn(
+    process.execPath,
+    [join(root, 'scripts', 'planning-service.mjs')],
+    { cwd: root, env: process.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+
+  const relay = (chunk) => {
+    const text = chunk.toString();
+    try {
+      appendFileSync(logFile, text);
+    } catch {
+      /* ignore */
+    }
+    process.stdout.write(text);
+  };
+  planningChild.stdout.on('data', relay);
+  planningChild.stderr.on('data', relay);
+
+  planningChild.on('error', (error) => {
+    log(`failed to spawn the planning watcher: ${error.message}`);
+  });
+
+  planningChild.on('exit', (code, signal) => {
+    planningChild = null;
+    if (stopping) return;
+
+    const uptime = Date.now() - planningStartedAt;
+    planningAttempt = uptime > 60_000 ? 1 : planningAttempt + 1;
+    const delay = Math.min(1_000 * 2 ** Math.min(planningAttempt, 4), 15_000);
+    log(`planning watcher exited (code=${code ?? '-'} signal=${signal ?? '-'}) after ${Math.round(uptime / 1000)}s; restarting in ${delay / 1000}s`);
+    setTimeout(startPlanning, delay);
+  });
+}
+
 function stop(signal) {
   if (stopping) return;
   stopping = true;
   log(`received ${signal}; shutting down.`);
-  if (!child && !apiChild) process.exit(0);
+  if (!child && !apiChild && !planningChild) process.exit(0);
   child?.kill('SIGINT');
   apiChild?.kill('SIGINT');
+  planningChild?.kill('SIGINT');
   setTimeout(() => {
     child?.kill('SIGKILL');
     apiChild?.kill('SIGKILL');
+    planningChild?.kill('SIGKILL');
     process.exit(0);
   }, 5_000).unref();
 }
@@ -169,8 +215,9 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGBREAK']) {
 
 const viteLive = await portInUse(HOST, PORT);
 const apiLive = await portInUse('127.0.0.1', API_PORT);
-if (viteLive && apiLive) {
-  log(`ports ${PORT} and ${API_PORT} are already serving; nothing to do.`);
+const planningLive = await portInUse('127.0.0.1', PLANNING_PORT);
+if (viteLive && apiLive && planningLive) {
+  log(`ports ${PORT}, ${API_PORT} and ${PLANNING_PORT} are already serving; nothing to do.`);
   process.exit(0);
 }
 
@@ -179,3 +226,5 @@ if (viteLive) log(`port ${PORT} is already serving; leaving it alone.`);
 else start();
 if (apiLive) log(`port ${API_PORT} is already serving; leaving it alone.`);
 else startApi();
+if (planningLive) log(`port ${PLANNING_PORT} is already serving; leaving it alone.`);
+else startPlanning();

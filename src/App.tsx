@@ -35,10 +35,11 @@ const SolidWastePage = lazy(() => import('./pages/SolidWaste').then((m) => ({ de
 const AmbientCornerPage = lazy(() => import('./pages/AmbientCorner').then((m) => ({ default: m.AmbientCornerPage })));
 const PixelOfficePage = lazy(() => import('./pages/PixelOfficePage').then((m) => ({ default: m.PixelOfficePage })));
 const EmedMonitoringPage = lazy(() => import('./pages/EmedMonitoring').then((m) => ({ default: m.EmedMonitoringPage })));
+const PlanningAccomplishmentsPage = lazy(() => import('./pages/PlanningAccomplishments').then((m) => ({ default: m.PlanningAccomplishmentsPage })));
 
 const PAGE_IDS: PageId[] = [
   'overview', 'sites', 'dp', 'pto', 'renewal', 'map',
-  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'swm', 'ambient', 'emed', 'pixel-office', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
+  'spatial', 'screening', 'quality', 'tables', 'reports', 'about', 'hw', 'swm', 'ambient', 'emed', 'planning', 'pixel-office', 'clearances', 'ecc-ultralist', 'admin', 'legal', 'pco-corner',
 ];
 
 function renderPage(page: PageId) {
@@ -58,6 +59,7 @@ function renderPage(page: PageId) {
     case 'swm': return <SolidWastePage />;
     case 'ambient': return <AmbientCornerPage />;
     case 'emed': return <EmedMonitoringPage />;
+    case 'planning': return <PlanningAccomplishmentsPage />;
     case 'pixel-office': return <PixelOfficePage />;
     case 'clearances': return <ClearancesPage />;
     case 'ecc-ultralist': return <EccUltralistPage />;

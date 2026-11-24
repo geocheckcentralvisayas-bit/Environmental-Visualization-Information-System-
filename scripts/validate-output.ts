@@ -21,6 +21,7 @@ const FILES = [
   'swm.json',
   'ecc-ultralist.json',
   'emed.json',
+  'planning.json',
 ];
 
 async function validateFile(file: string, schema: any) {
@@ -96,6 +97,53 @@ async function main() {
     'swm.json': looseDataset,
     'ecc-ultralist.json': looseDataset,
     'emed.json': looseDataset,
+    'planning.json': z.object({
+      meta: z.object({
+        generatedAt: z.string(),
+        contentHash: z.string(),
+        reportingMonth: z.number().int().min(1).max(12),
+        source: z.object({
+          path: z.string(),
+          fileName: z.string(),
+          sheet: z.string(),
+          modifiedAt: z.string(),
+          bytes: z.number(),
+        }),
+        counts: z.object({
+          activities: z.number().int().positive(),
+          sections: z.number().int().positive(),
+          projects: z.number().int(),
+          assessed: z.number().int(),
+          met: z.number().int(),
+          overallRate: z.number().nullable(),
+        }),
+      }).passthrough(),
+      monthly: z.array(z.object({
+        index: z.number().int(),
+        label: z.string(),
+        assessed: z.number().int(),
+        met: z.number().int(),
+      }).passthrough()).length(12),
+      sections: z.array(z.object({
+        section: z.string(),
+        activities: z.number().int().positive(),
+      }).passthrough()).min(1),
+      records: z.array(z.object({
+        id: z.string(),
+        row: z.number().int().positive(),
+        section: z.string(),
+        indicator: z.string(),
+        targets: z.array(z.number()).length(12),
+        actuals: z.array(z.number()).length(12),
+        status: z.string(),
+        flags: z.array(z.string()),
+      }).passthrough()).min(1),
+      quality: z.object({
+        totalIssues: z.number().int(),
+        byType: z.record(z.string(), z.number().int()),
+        issues: z.array(z.unknown()),
+      }).passthrough(),
+    }).passthrough(),
   };
 
   let allValid = await validateWorkerAllowList();

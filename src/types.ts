@@ -638,6 +638,7 @@ export type PageId =
   | 'swm'
   | 'ambient'
   | 'emed'
+  | 'planning'
   | 'pixel-office';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';

@@ -57,6 +57,7 @@ const ROOT_DATA_FILES = new Set([
   'swm.json',
   'aqms.json',
   'emed.json',
+  'planning.json',
   'geojson/layers.json',
 ]);
 
@@ -198,8 +199,41 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
   return json({ ok: true, role: account.role, displayName: account.display_name });
 }
 
+/**
+ * Proxy the live planning snapshot from the local watcher. Returns null when
+ * the service is unavailable so the caller can fall back to R2.
+ */
+async function fetchPlanningLive(request: Request, env: Env): Promise<Response | null> {
+  try {
+    const target = new URL(env.PLANNING_LIVE_URL as string);
+    if (new URL(request.url).searchParams.get('refresh') === '1') {
+      target.searchParams.set('refresh', '1');
+    }
+    const response = await fetch(target.toString(), { headers: { 'Cache-Control': 'no-cache' } });
+    if (!response.ok) return null;
+    const body = await response.arrayBuffer();
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json; charset=utf-8');
+    headers.set('Cache-Control', 'no-store');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('X-Planning-Live', '1');
+    const etag = response.headers.get('etag');
+    if (etag) headers.set('ETag', etag);
+    return new Response(body, { headers });
+  } catch {
+    return null;
+  }
+}
+
 async function handleData(request: Request, env: Env, auth: AuthContext, path: string): Promise<Response> {
   if (!isAllowedDataPath(path)) return fail(404, 'Not found.');
+  // Planning data is rebuilt by the local watcher (scripts/planning-service.mjs).
+  // In development the Worker proxies it so the tab updates without a redeploy;
+  // a missing live service falls through to the last R2 snapshot.
+  if (path === 'planning.json' && env.PLANNING_LIVE_URL) {
+    const live = await fetchPlanningLive(request, env);
+    if (live) return live;
+  }
   // EMED worksheets contain complainant, PCO and inspector contact details.
   // A signed-in account alone is not enough to read them.
   if (path === 'emed.json' || path.startsWith('emed/')) {

@@ -94,13 +94,14 @@ npm run dev
 ```
 
 `npm run dev` is now self-sufficient: a `predev` hook starts the local API
-(Worker on port 8787) if it is not already running, then starts Vite on port
-5173. Open **http://localhost:5173** and sign in with an account from
-`CREDENTIALS.md`.
+(Worker on port 8787) and the planning watcher (port 8788) if they are not
+already running, then starts Vite on port 5173. Open **http://localhost:5173**
+and sign in with an account from `CREDENTIALS.md`.
 
 The API keeps running in the background after the hook exits and logs to
-`logs/api-dev.log`. If you prefer to run the two services yourself, or want
-both supervised with automatic restarts, use:
+`logs/api-dev.log`. The planning watcher logs to `logs/planning.log`. If you
+prefer to run the services yourself, or want them supervised with automatic
+restarts, use:
 
 ```bash
 # Option A — one command, both services supervised
@@ -182,8 +183,8 @@ trusted office network.
 
 ## 7. What should be visible
 
-- Navigation includes **Overview, Ambient Corner, Pixel Office**, all permit
-  and compliance tabs.
+- Navigation includes **Overview, Ambient Corner, Pixel Office, Planning
+  Accomplishments 2026**, all permit and compliance tabs.
 - Footer shows **Build 1.2.0 · #45 · Authorized** (the number is the commit
   count locally, or the GitHub Actions run number in CI).
 - Pixel Office is visible only to `mis` and `rd` accounts and issues a
@@ -199,6 +200,8 @@ trusted office network.
 | Login fails on the new PC | Re-run `api:seed` and `api:seed:apply`, making sure `CREDENTIALS.md` is present. |
 | Pixel Office shows a broken image | Confirm `public/pixel-office/characters/` exists, or rebuild the Pixel Office app and copy its `dist` over. |
 | Data looks old | Run `npm run data:all` (needs network access to the source sheets), then `npm run api:upload`. |
+| Planning tab says “Planning data is not available yet” | The workbook was not found or the watcher is stopped. Confirm the OneDrive copy exists (or set `PLANNING_WORKBOOK`), run `npm run data:planning`, then `npm run planning:serve`. Check `logs/planning.log` and `http://127.0.0.1:8788/health`. |
+| Planning tab shows old accomplishments | OneDrive has not synced the latest SharePoint copy yet. The watcher polls every 5 seconds; wait for OneDrive, then use **Refresh now** on the page. |
 
 ## 9. Keep secrets out of Git
 

@@ -64,6 +64,7 @@ aid, not a replacement for official records, permits or clearances.
 | Ambient Corner (AQMS) | Live and historical PM2.5 / PM10 from two continuous stations, manual AQI samples and a station map; view-only |
 | Solid Waste Management (SWM) | MRF register, ECC/CNC disposal approvals, WACS analysis, current and archived annual compliance summaries, LGU contact directory and workbook reference lists — Cebu and Bohol only; view-only, with its own map and points on the Spatial Map |
 | EMED Monitoring Dashboards | CY 2026 KRA performance, monthly target vs accomplishment, division ratios, inspector workload and every sheet of the EMED monitoring workbook; restricted to RD, EMED and MIS accounts |
+| Planning Accomplishments 2026 | Every performance indicator from the EMB 7 Accomplishment workbook: twelve monthly targets and accomplishments, remarks, means of verification, data-quality checks, focal staff and a field-level change log; refreshes from the locally synced workbook |
 | Spatial layers | Flood, landslide, protected areas, watersheds, land cover, land classification, boundaries |
 
 ## How it works
@@ -119,6 +120,10 @@ flowchart LR
   establishments by exact and reviewed names only; paid/pending and closed/open
   status per case; PAB coverage and yearly collections reported without exposing
   amounts on individual records.
+- **Planning Accomplishments 2026** — every indicator from the CY 2026 planning
+  workbook with twelve monthly targets and accomplishments, status derivation,
+  data-quality checks, focal staff and a live change log driven by the locally
+  synced workbook.
 - **Renewal watch** — permits approaching expiry and already-lapsed permits are
   grouped so follow-up work can be prioritised.
 - **Data quality first** — QA flags, audit trails, review queues, duplicate
@@ -240,6 +245,32 @@ npm run dev             # Vite on http://localhost:5173 (proxies /api)
 On Windows, `npm run live:autostart` registers a logon task that keeps **both**
 processes running and restarts them if they exit. Use `npm run live:status` to
 check them and `npm run live:restart` after changing Worker code.
+
+### Planning Accomplishments live source
+
+The **Planning Accomplishments 2026** tab reads the `Main (for CO)` sheet of
+`EMB 7 Accomplishment 2026 - ALL SECTIONS.xlsx`. Because the SharePoint copy is
+sign-in gated, the pipeline watches the **locally synced OneDrive workbook**:
+
+```
+%USERPROFILE%\OneDrive - Environmental Management Bureau\EMB Office Files\
+  10 Reports (Annual, Monthly, Quarterly)\2026 Monthly Accomplishment\
+  ORD-PLANNING\EMB 7 Accomplishment 2026 - ALL SECTIONS.xlsx
+```
+
+- `npm run data:planning` rebuilds `public/data/planning.json` once from the
+  workbook (set `PLANNING_WORKBOOK` to use a different path, or copy the file to
+  `data/EMB 7 Accomplishment 2026 - ALL SECTIONS.xlsx`).
+- `npm run planning:serve` runs the watcher on `http://127.0.0.1:8788`. It hashes
+  the workbook every 5 seconds and rebuilds only when the bytes change.
+- `npm run dev` and `npm run live` start the watcher automatically. In
+  `worker/.dev.vars`, `PLANNING_LIVE_URL` points the Worker at the watcher so
+  `/api/data/planning.json` is proxied live. Without it, the Worker serves the
+  last uploaded R2 snapshot.
+- The page checks for a new snapshot every 10 seconds. Actual latency is the
+  OneDrive sync delay — usually seconds, occasionally about a minute. The live
+  proxy is development/LAN only; never set `PLANNING_LIVE_URL` on a deployed
+  Worker.
 
 `worker/.dev.vars` is git-ignored. Production `ALLOWED_ORIGINS` in
 `worker/wrangler.toml` lists only the Pages origin; localhost is never allowed
