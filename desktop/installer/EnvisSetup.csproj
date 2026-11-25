@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Produces the distributable installer: desktop\dist\ENVIS Dashboard Setup.exe
+    The dashboard executable is embedded as a resource, so Setup.exe is a single
+    file you can copy to another PC.
+
+    Build it with desktop\build.ps1 (which builds the app first), or directly:
+      dotnet publish desktop\installer\EnvisSetup.csproj -c Release ^
+        -p:AppExePath="desktop\dist\ENVIS Dashboard.exe"
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>ENVISDashboardSetup</AssemblyName>
+    <RootNamespace>EnvisSetup</RootNamespace>
+    <ApplicationIcon>..\assets\envis.ico</ApplicationIcon>
+    <ApplicationManifest>..\app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+
+    <!-- The installer is always portable: it must run before .NET is present. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <PublishTrimmed>false</PublishTrimmed>
+
+    <Version>1.3.10</Version>
+    <FileVersion>1.3.10.0</FileVersion>
+    <AssemblyVersion>1.3.10.0</AssemblyVersion>
+    <Product>ENVIS Dashboard Setup</Product>
+    <Description>Installer for the ENVIS Region VII dashboard desktop app.</Description>
+    <Company>Environmental Management Bureau Region VII</Company>
+    <Copyright>Environmental Management Bureau Region VII</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(AppExePath)')">
+    <EmbeddedResource Include="$(AppExePath)" LogicalName="ENVISDashboard.payload.exe" />
+  </ItemGroup>
+
+  <Target Name="RequirePayload" BeforeTargets="BeforeBuild" Condition="!Exists('$(AppExePath)')">
+    <Error Text="AppExePath is not set or does not exist: '$(AppExePath)'. Run desktop\build.ps1, or pass -p:AppExePath=&quot;full path to ENVIS Dashboard.exe&quot;." />
+  </Target>
+
+</Project>

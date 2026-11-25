@@ -246,6 +246,25 @@ On Windows, `npm run live:autostart` registers a logon task that keeps **both**
 processes running and restarts them if they exit. Use `npm run live:status` to
 check them and `npm run live:restart` after changing Worker code.
 
+### Windows desktop app
+
+`desktop\` turns the dashboard into a real window (WinForms + WebView2) that
+starts the same three services and lives in the notification area, with no
+terminal. Building it produces both a portable exe and an installer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File desktop\build.ps1
+```
+
+- `desktop\dist\ENVIS Dashboard.exe` — portable, no install.
+- `desktop\dist\ENVIS Dashboard Setup.exe` — installer with Start Menu/Desktop
+  shortcuts, Apps & Features entry and uninstaller. It installs per user (no
+  admin) and records where this project lives.
+
+Both need Node.js 20+, the project's `node_modules`, and the WebView2 runtime
+(included with Windows 11/Edge). See [desktop/README.md](desktop/README.md) for
+the tray menu, silent install flags, logs and uninstall steps.
+
 ### Planning Accomplishments live source
 
 The **Planning Accomplishments 2026** tab reads the `Main (for CO)` sheet of

@@ -23,6 +23,19 @@ data/legal/
 # Generated reports (review queues)
 reports/
 
+# Local workbook-audit evidence: contains a copy of the private planning
+# workbook, so it must never be committed.
+screenshots/planning-evidence/
+
+# Desktop app build output (the .exe is generated locally, not source)
+desktop/bin/
+desktop/obj/
+desktop/publish/
+desktop/dist/
+desktop/installer/bin/
+desktop/installer/obj/
+desktop/installer/publish/
+
 # Environment
 .env
 .env.local
