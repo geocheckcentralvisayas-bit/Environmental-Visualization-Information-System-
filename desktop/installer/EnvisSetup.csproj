@@ -33,9 +33,9 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <PublishTrimmed>false</PublishTrimmed>
 
-    <Version>1.3.10</Version>
-    <FileVersion>1.3.10.0</FileVersion>
-    <AssemblyVersion>1.3.10.0</AssemblyVersion>
+    <Version>1.3.12</Version>
+    <FileVersion>1.3.12.0</FileVersion>
+    <AssemblyVersion>1.3.12.0</AssemblyVersion>
     <Product>ENVIS Dashboard Setup</Product>
     <Description>Installer for the ENVIS Region VII dashboard desktop app.</Description>
     <Company>Environmental Management Bureau Region VII</Company>

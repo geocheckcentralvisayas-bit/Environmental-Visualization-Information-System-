@@ -12,36 +12,8 @@ import {
   GAP_META, LEGAL_STATUS_STYLE, LIFECYCLE_STYLE, REGISTER_META, REGISTER_ORDER, RISK_LABELS, escapeHtml, formatDate, formatNumber, riskColor,
 } from '../lib/format';
 import { swmDisposalPopupFor, swmFacilityPopup } from './SwmMap';
+import { BASEMAPS } from '../lib/basemaps';
 import type { Facility, LegalFacilitySummary, SpatialLayer, Permit, SwmDisposalProject, SwmFacility } from '../types';
-
-const BASEMAPS: Record<string, { label: string; url: string; attribution: string; maxZoom?: number }> = {
-  satellite: {
-    label: 'Satellite imagery',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, Maxar, Earthstar Geographics',
-    maxZoom: 19,
-  },
-  streets: {
-    label: 'Esri streets',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, HERE, Garmin, OpenStreetMap contributors',
-  },
-  topo: {
-    label: 'Topographic',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, HERE, Garmin, USGS',
-  },
-  ocean: {
-    label: 'Ocean',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, GEBCO, NOAA',
-  },
-  osm: {
-    label: 'OpenStreetMap',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors',
-  },
-};
 
 type PointMode = 'companies' | 'permits' | 'swm' | 'none';
 
@@ -176,6 +148,7 @@ export function MapView({
     tileRef.current = L.tileLayer(config.url, {
       attribution: config.attribution,
       maxZoom: config.maxZoom ?? 20,
+      maxNativeZoom: config.maxNativeZoom,
       subdomains: 'abcd',
     }).addTo(map);
     tileRef.current.bringToBack();

@@ -4,20 +4,12 @@ import 'leaflet/dist/leaflet.css';
 import { Layers3, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { escapeHtml } from '../lib/format';
+import { BASEMAPS as SHARED_BASEMAPS } from '../lib/basemaps';
 import type { AqmsManualRecord, AqmsReading, AqmsStation } from '../types';
 
 const BASEMAPS = {
-  streets: {
-    label: 'Streets',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, HERE, Garmin, OpenStreetMap contributors',
-  },
-  satellite: {
-    label: 'Satellite',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, Maxar, Earthstar Geographics',
-    maxZoom: 19,
-  },
+  streets: SHARED_BASEMAPS.streets,
+  satellite: SHARED_BASEMAPS.satellite,
 } as const;
 
 type BasemapId = keyof typeof BASEMAPS;
@@ -138,6 +130,7 @@ export function AqmsMap({
     tileRef.current = L.tileLayer(config.url, {
       attribution: config.attribution,
       maxZoom: 'maxZoom' in config ? config.maxZoom : 20,
+      maxNativeZoom: 'maxNativeZoom' in config ? config.maxNativeZoom : undefined,
     }).addTo(map);
     tileRef.current.bringToBack();
   }, [basemap, ready]);

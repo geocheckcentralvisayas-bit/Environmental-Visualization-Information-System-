@@ -145,6 +145,32 @@ COOKIE_SAME_SITE = "Lax"
 successful login. Keep these values local: **never** enable `ALLOW_LAN_ORIGINS`
 or disable `COOKIE_SECURE` on a deployed Worker.
 
+### Offline maps and client PCs
+
+Run this once on the host while online:
+
+```bash
+npm run data:tiles
+```
+
+It fills `offline-tiles\` (streets + satellite, zoom 7-12, about 23 MB). The dev
+server serves it at `/tiles`, so maps render with no internet and any extra tile
+viewed while online is cached for later. Copy `offline-tiles\` with the project;
+it is git-ignored but required for offline maps.
+
+Colleagues should not each run their own copy. On the host, open tray → Status
+to read the LAN address (`http://192.168.x.x:5173`). On each colleague's PC run
+the desktop installer and put that address in **Shared dashboard server
+(optional)**, or silently:
+
+```powershell
+"ENVIS Dashboard Setup.exe" /S /SERVER:http://192.168.x.x:5173
+```
+
+Client mode needs no Node.js or project folder: it reads the host's data, login
+and map tiles over the office LAN, so new data appears as soon as the host
+rebuilds it.
+
 ### Auto-start after you sign in
 
 To have the LAN server come back automatically after a reboot **without running

@@ -1,7 +1,72 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
-import { defineConfig } from 'vite';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type Connect } from 'vite';
 import react from '@vitejs/plugin-react';
+
+const TILE_DIR = fileURLToPath(new URL('./offline-tiles', import.meta.url));
+const TILE_UPSTREAM = {
+  streets: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile',
+} as const;
+
+/**
+ * Serves the bundled Region VII tiles during development/LAN use and caches any
+ * extra tile the user browses while online. Offline, only the bundled zooms
+ * (7-12 for streets and satellite) are available; higher zooms overzoom them.
+ */
+function offlineTiles() {
+  return {
+    name: 'offline-tiles',
+    apply: 'serve' as const,
+    configureServer(server: { middlewares: Connect.Server }) {
+      server.middlewares.use((request, response, next) => {
+        const path = (request.url ?? '').split('?')[0];
+        if (!path.startsWith('/tiles/')) {
+          next();
+          return;
+        }
+
+        const match = /^\/tiles\/(streets|satellite)\/(\d{1,2})\/(\d+)\/(\d+)\.jpg$/.exec(path);
+        if (!match) {
+          response.statusCode = 404;
+          response.end('Not found');
+          return;
+        }
+
+        const [, style, zoom, x, y] = match;
+        const file = join(TILE_DIR, style, zoom, x, `${y}.jpg`);
+        const send = (image: Buffer) => {
+          response.setHeader('Content-Type', 'image/jpeg');
+          response.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+          response.end(image);
+        };
+
+        if (existsSync(file)) {
+          send(readFileSync(file));
+          return;
+        }
+
+        // Missing tile: fetch it once, keep it, so a later offline run has it.
+        void (async () => {
+          try {
+            const upstream = TILE_UPSTREAM[style as keyof typeof TILE_UPSTREAM];
+            const fetched = await fetch(`${upstream}/${zoom}/${y}/${x}`);
+            if (!fetched.ok) throw new Error(`HTTP ${fetched.status}`);
+            const image = Buffer.from(await fetched.arrayBuffer());
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(file, image);
+            send(image);
+          } catch {
+            response.statusCode = 404;
+            response.end('Tile not available offline');
+          }
+        })();
+      });
+    },
+  };
+}
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 // GitHub Actions supplies the run number. Locally, use the commit count so the
@@ -90,7 +155,7 @@ function stripStaticData() {
 }
 
 export default defineConfig({
-  plugins: [react(), contentSecurityPolicy(), stripStaticData()],
+  plugins: [react(), contentSecurityPolicy(), stripStaticData(), offlineTiles()],
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
@@ -101,7 +166,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
-    watch: { ignored: ['**/data/raw/**', '**/data/*.csv', '**/data/*.xlsx', '**/dist/**', '**/ENVIS-Pixel-Office/**'] },
+    watch: { ignored: ['**/data/raw/**', '**/data/*.csv', '**/data/*.xlsx', '**/dist/**', '**/offline-tiles/**', '**/desktop/**', '**/ENVIS-Pixel-Office/**'] },
     // Local development: the authenticated API runs as a Cloudflare Worker on
     // :8787 (`npm run api:dev`). Production builds use VITE_API_BASE instead.
     proxy: {

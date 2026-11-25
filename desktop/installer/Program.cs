@@ -21,7 +21,8 @@ namespace EnvisSetup
                     "  ENVIS Dashboard Setup.exe            interactive install\n" +
                     "  ... /S                              silent install with defaults\n" +
                     "  ... /DIR:\"C:\\path\"                   install folder\n" +
-                    "  ... /PROJECTROOT:\"C:\\path\"           dashboard project folder\n\n" +
+                    "  ... /PROJECTROOT:\"C:\\path\"           dashboard project folder\n" +
+                    "  ... /SERVER:http://192.168.1.20:5173  connect to the host PC instead\n\n" +
                     "Silent install writes a log to %TEMP%\\envis-setup.log on failure.",
                     "ENVIS Dashboard Setup",
                     MessageBoxButtons.OK,
@@ -34,15 +35,17 @@ namespace EnvisSetup
             {
                 var location = GetOption(args, "/DIR:") ?? Installer.DefaultInstallDirectory;
                 var project = GetOption(args, "/PROJECTROOT:");
-                Environment.ExitCode = Installer.RunSilent(location, project, true, true);
+                var server = GetOption(args, "/SERVER:");
+                Environment.ExitCode = Installer.RunSilent(location, project, server, true, true);
                 return;
             }
 
             // A visible install path override is useful for shortcuts and scripts.
             var initialLocation = GetOption(args, "/DIR:");
             var initialProject = GetOption(args, "/PROJECTROOT:");
+            var initialServer = GetOption(args, "/SERVER:");
 
-            Application.Run(new SetupForm(initialLocation, initialProject));
+            Application.Run(new SetupForm(initialLocation, initialProject, initialServer));
         }
 
         private static bool HasFlag(string[] args, string value)

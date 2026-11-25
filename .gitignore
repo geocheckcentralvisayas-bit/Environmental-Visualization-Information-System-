@@ -20,6 +20,10 @@ spatial-src/
 data/raw/
 data/legal/
 
+# Bundled offline basemap (regenerated with `npm run data:tiles`, shipped with
+# the copied project folder, never in git)
+offline-tiles/
+
 # Generated reports (review queues)
 reports/
 

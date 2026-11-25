@@ -38,6 +38,10 @@ namespace EnvisSetup
         private readonly Button _browseProject = new Button();
         private readonly Label _projectHint = new Label();
 
+        private readonly Label _serverLabel = new Label();
+        private readonly TextBox _server = new TextBox();
+        private readonly Label _serverHint = new Label();
+
         private readonly CheckBox _startMenu = new CheckBox();
         private readonly CheckBox _desktop = new CheckBox();
         private readonly Label _status = new Label();
@@ -52,6 +56,7 @@ namespace EnvisSetup
 
         private readonly string? _initialLocation;
         private readonly string? _initialProject;
+        private readonly string? _initialServer;
         private bool _busy;
         private string? _installedExecutable;
 
@@ -67,17 +72,18 @@ namespace EnvisSetup
         [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
 
-        public SetupForm(string? initialLocation = null, string? initialProject = null)
+        public SetupForm(string? initialLocation = null, string? initialProject = null, string? initialServer = null)
         {
             _initialLocation = initialLocation;
             _initialProject = initialProject;
+            _initialServer = initialServer;
 
             Text = "ENVIS Dashboard Setup";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = true;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(820, 580);
+            ClientSize = new Size(820, 640);
             BackColor = Background;
             AutoScaleMode = AutoScaleMode.Dpi;
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
@@ -189,32 +195,42 @@ namespace EnvisSetup
 
             _project.TextChanged += delegate { ValidateProject(); };
 
+            BuildSection(_serverLabel, "Shared dashboard server (optional)", left, 330);
+            BuildTextBox(_server, left, 354, 380);
+            _serverHint.Text = "Leave blank to run this dashboard locally. On a colleague's PC enter the host's " +
+                               "address, e.g. http://192.168.1.20:5173 — the app then uses the host's data and " +
+                               "offline maps, and needs no project folder or Node.js.";
+            _serverHint.ForeColor = TextFaint;
+            _serverHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
+            _serverHint.SetBounds(left, 386, 500, 34);
+            Controls.Add(_serverHint);
+
             _startMenu.Text = "Add a Start Menu shortcut";
             _startMenu.ForeColor = TextPrimary;
             _startMenu.Checked = true;
-            _startMenu.SetBounds(left, 344, 300, 24);
+            _startMenu.SetBounds(left, 428, 300, 24);
             Controls.Add(_startMenu);
 
             _desktop.Text = "Add a Desktop shortcut";
             _desktop.ForeColor = TextPrimary;
             _desktop.Checked = true;
-            _desktop.SetBounds(left, 372, 300, 24);
+            _desktop.SetBounds(left, 456, 300, 24);
             Controls.Add(_desktop);
 
             _status.Text = "Ready to install.";
             _status.ForeColor = TextMuted;
             _status.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-            _status.SetBounds(left, 408, 500, 36);
+            _status.SetBounds(left, 490, 500, 36);
             Controls.Add(_status);
 
-            _progress.SetBounds(left, 452, 500, 6);
+            _progress.SetBounds(left, 532, 500, 6);
             _progress.Style = ProgressBarStyle.Continuous;
             _progress.Minimum = 0;
             _progress.Maximum = 100;
             Controls.Add(_progress);
 
             _install.Text = "Install";
-            _install.SetBounds(left + 318, 486, 182, 40);
+            _install.SetBounds(left + 318, 562, 182, 40);
             _install.FlatStyle = FlatStyle.Flat;
             _install.FlatAppearance.BorderSize = 0;
             _install.BackColor = Emerald;
@@ -225,7 +241,7 @@ namespace EnvisSetup
             Controls.Add(_install);
 
             _cancel.Text = "Cancel";
-            _cancel.SetBounds(left + 222, 486, 88, 40);
+            _cancel.SetBounds(left + 222, 562, 88, 40);
             _cancel.FlatStyle = FlatStyle.Flat;
             _cancel.FlatAppearance.BorderColor = BorderColor;
             _cancel.BackColor = FieldBackground;
@@ -271,12 +287,13 @@ namespace EnvisSetup
             Controls.Add(_close);
         }
 
-        private static void BuildSection(Label label, string text, int left, int top)
+        private void BuildSection(Label label, string text, int left, int top)
         {
             label.Text = text;
             label.ForeColor = TextPrimary;
             label.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
             label.SetBounds(left, top, 400, 22);
+            Controls.Add(label);
         }
 
         private void BuildTextBox(TextBox box, int left, int top, int width)
@@ -309,6 +326,7 @@ namespace EnvisSetup
 
             var project = Installer.ResolveProjectRoot(_initialProject);
             _project.Text = project ?? string.Empty;
+            _server.Text = _initialServer ?? string.Empty;
             ValidateProject();
 
             if (Installer.AlreadyInstalled)
@@ -366,6 +384,7 @@ namespace EnvisSetup
 
             var location = _location.Text.Trim();
             var project = _project.Text.Trim();
+            var server = _server.Text.Trim();
 
             if (location.Length == 0)
             {
@@ -374,7 +393,22 @@ namespace EnvisSetup
                 return;
             }
 
-            if (!Installer.IsProjectRoot(project))
+            if (server.Length > 0)
+            {
+                if (!Uri.TryCreate(server, UriKind.Absolute, out var parsed) ||
+                    (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+                {
+                    MessageBox.Show(
+                        this,
+                        "The shared server address must look like:\n\nhttp://192.168.1.20:5173",
+                        Text,
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    _server.Focus();
+                    return;
+                }
+            }
+            else if (!Installer.IsProjectRoot(project))
             {
                 var proceed = MessageBox.Show(
                     this,
@@ -396,6 +430,7 @@ namespace EnvisSetup
             _project.Enabled = false;
             _browseLocation.Enabled = false;
             _browseProject.Enabled = false;
+            _server.Enabled = false;
             _startMenu.Enabled = false;
             _desktop.Enabled = false;
             _progress.Value = 0;
@@ -411,7 +446,7 @@ namespace EnvisSetup
             {
                 var startMenu = _startMenu.Checked;
                 var desktop = _desktop.Checked;
-                await Task.Run(() => Installer.Install(location, project, startMenu, desktop, reporter.Report));
+                await Task.Run(() => Installer.Install(location, project, server, startMenu, desktop, reporter.Report));
 
                 _installedExecutable = Installer.InstalledExecutable(Path.GetFullPath(location));
                 ShowDone(Path.GetFullPath(location));
@@ -425,6 +460,7 @@ namespace EnvisSetup
                 _project.Enabled = true;
                 _browseLocation.Enabled = true;
                 _browseProject.Enabled = true;
+                _server.Enabled = true;
                 _startMenu.Enabled = true;
                 _desktop.Enabled = true;
                 _progress.Value = 0;
@@ -453,6 +489,9 @@ namespace EnvisSetup
             _project.Visible = false;
             _browseProject.Visible = false;
             _projectHint.Visible = false;
+            _serverLabel.Visible = false;
+            _server.Visible = false;
+            _serverHint.Visible = false;
             _startMenu.Visible = false;
             _desktop.Visible = false;
             _status.Visible = false;

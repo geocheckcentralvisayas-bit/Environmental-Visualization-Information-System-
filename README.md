@@ -246,6 +246,21 @@ On Windows, `npm run live:autostart` registers a logon task that keeps **both**
 processes running and restarts them if they exit. Use `npm run live:status` to
 check them and `npm run live:restart` after changing Worker code.
 
+### Offline maps and shared office use
+
+`npm run data:tiles` downloads the Region VII streets and satellite basemap
+(zoom 7-12, about 23 MB) into `offline-tiles\`. The dev server serves that pack
+at `/tiles`, so the map keeps working with no internet; the app caches any extra
+tile opened while online. Keep `offline-tiles\` with the project when you copy it
+to another PC. Esri/OpenStreetMap attribution still applies.
+
+One PC is the **host**: it runs the services and holds the newest data and
+tiles. Colleagues install the desktop app in client mode and point it at the
+host's LAN address (`http://<host-ip>:5173`). Their app starts nothing locally,
+so every rebuilt dataset or workbook change is visible to everyone at once,
+without internet and without copying files. The host address is shown in the
+app's tray → Status.
+
 ### Windows desktop app
 
 `desktop\` turns the dashboard into a real window (WinForms + WebView2) that

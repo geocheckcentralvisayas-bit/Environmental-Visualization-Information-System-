@@ -19,7 +19,10 @@ namespace EnvisDashboard
     /// </summary>
     internal sealed class ServiceHost : IDisposable
     {
-        public const string BaseUrl = "http://127.0.0.1:5173";
+        private readonly object _logLock = new object();
+        private Process? _supervisor;
+        private bool _disposed;
+        private readonly string? _remoteServer;
 
         private static readonly HttpClient Http = new HttpClient
         {
@@ -28,9 +31,16 @@ namespace EnvisDashboard
             Timeout = Timeout.InfiniteTimeSpan,
         };
 
-        private readonly object _logLock = new object();
-        private Process? _supervisor;
-        private bool _disposed;
+        /// <summary>
+        /// Local dashboard URL, or the shared host's URL when this app was
+        /// installed in client mode (config.json "serverUrl").
+        /// </summary>
+        public string BaseUrl { get; }
+
+        public bool IsRemote
+        {
+            get { return _remoteServer != null; }
+        }
 
         public string? ProjectRoot { get; }
         public string? NodePath { get; }
@@ -38,14 +48,20 @@ namespace EnvisDashboard
 
         public bool IsReady
         {
-            get { return SetupError.Length == 0 && ProjectRoot != null && NodePath != null; }
+            get { return IsRemote || (SetupError.Length == 0 && ProjectRoot != null && NodePath != null); }
         }
 
         public string LogFile
         {
             get
             {
-                if (ProjectRoot == null) return string.Empty;
+                if (ProjectRoot == null)
+                {
+                    return Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "ENVIS Dashboard",
+                        "desktop-app.log");
+                }
                 return Path.Combine(ProjectRoot, "logs", "desktop-app.log");
             }
         }
@@ -66,6 +82,18 @@ namespace EnvisDashboard
 
         public ServiceHost()
         {
+            var configuredServer = ReadConfiguredServer();
+            if (configuredServer != null)
+            {
+                // Client mode: the host PC runs the services and owns the data.
+                _remoteServer = configuredServer;
+                BaseUrl = configuredServer;
+                SetupError = string.Empty;
+                return;
+            }
+
+            BaseUrl = "http://127.0.0.1:5173";
+
             var problems = new List<string>();
             ProjectRoot = LocateProjectRoot();
             if (ProjectRoot == null)
@@ -80,6 +108,49 @@ namespace EnvisDashboard
             }
 
             SetupError = string.Join(" ", problems);
+        }
+
+        /// <summary>
+        /// Reads the shared server address written by the installer, or
+        /// ENVIS_SERVER_URL for a temporary override. Empty means local mode.
+        /// </summary>
+        private static string? ReadConfiguredServer()
+        {
+            var candidate = Environment.GetEnvironmentVariable("ENVIS_SERVER_URL");
+            var parsed = NormalizeServer(candidate);
+            if (parsed != null) return parsed;
+
+            var configPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ENVIS Dashboard",
+                "config.json");
+
+            try
+            {
+                if (!File.Exists(configPath)) return null;
+                using (var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(configPath)))
+                {
+                    System.Text.Json.JsonElement value;
+                    if (document.RootElement.TryGetProperty("serverUrl", out value))
+                    {
+                        return NormalizeServer(value.GetString());
+                    }
+                }
+            }
+            catch
+            {
+                // A malformed config must not stop the app.
+            }
+
+            return null;
+        }
+
+        private static string? NormalizeServer(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)) return null;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return null;
+            return uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/');
         }
 
         private static string? LocateProjectRoot()
@@ -189,6 +260,9 @@ namespace EnvisDashboard
         /// <summary>Starts the supervisor unless the dashboard is already answering.</summary>
         public bool StartSupervisor(bool force = false)
         {
+            // Client mode: the shared host owns the services.
+            if (IsRemote) return false;
+
             EnsureReady();
 
             if (!force && IsPortOpen(5173)) return false;
@@ -277,6 +351,12 @@ namespace EnvisDashboard
 
         public async Task RestartAsync(Action<string>? progress, CancellationToken cancellationToken)
         {
+            if (IsRemote)
+            {
+                throw new InvalidOperationException(
+                    "This app is connected to a shared dashboard server. Restart the services on the host PC instead.");
+            }
+
             EnsureReady();
             if (progress != null) progress("Stopping the dashboard services...");
             await StopAsync().ConfigureAwait(false);
@@ -289,6 +369,12 @@ namespace EnvisDashboard
 
         public async Task StopAsync()
         {
+            if (IsRemote)
+            {
+                AppendLog("[app] remote mode: nothing to stop locally");
+                return;
+            }
+
             KillSupervisors();
             await Task.Delay(500).ConfigureAwait(false);
             KillPortOwners();
@@ -299,14 +385,37 @@ namespace EnvisDashboard
 
         public string DescribeStatus()
         {
+            var text = new StringBuilder();
+
+            if (IsRemote)
+            {
+                text.AppendLine("Mode ........... Shared server (client)");
+                text.AppendLine("Dashboard ...... " + BaseUrl);
+                text.AppendLine();
+                text.AppendLine("Data and maps come from the host PC; this app starts no local services.");
+                text.AppendLine("To run locally instead, delete serverUrl from:");
+                text.AppendLine("  " + Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "ENVIS Dashboard",
+                    "config.json"));
+                return text.ToString();
+            }
+
             var site = IsPortOpen(5173);
             var api = IsPortOpen(8787);
             var planning = IsPortOpen(8788);
 
-            var text = new StringBuilder();
+            text.AppendLine("Mode ........... Local host");
             text.AppendLine("Dashboard ...... " + (site ? "LIVE" : "DOWN") + "   " + BaseUrl);
             text.AppendLine("API ............ " + (api ? "LIVE" : "DOWN") + "   http://127.0.0.1:8787");
             text.AppendLine("Planning sync .. " + (planning ? "LIVE" : "DOWN") + "   http://127.0.0.1:8788");
+            text.AppendLine();
+            text.AppendLine("Share with colleagues (installed as client / SERVER:):");
+            foreach (var address in LanAddresses())
+            {
+                text.AppendLine("  http://" + address + ":5173");
+            }
+
             text.AppendLine();
             text.AppendLine("Project: " + (ProjectRoot ?? "(not found)"));
             text.AppendLine("Node:    " + (NodePath ?? "(not found)"));
@@ -321,10 +430,37 @@ namespace EnvisDashboard
             return text.ToString();
         }
 
+        private static IEnumerable<string> LanAddresses()
+        {
+            var found = new List<string>();
+            try
+            {
+                foreach (var network in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (network.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    if (network.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback) continue;
+                    foreach (var address in network.GetIPProperties().UnicastAddresses)
+                    {
+                        if (address.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                        var value = address.Address.ToString();
+                        if (value.StartsWith("169.254.")) continue;
+                        found.Add(value);
+                    }
+                }
+            }
+            catch
+            {
+                // Best effort only.
+            }
+
+            return found;
+        }
+
         public void OpenLogsFolder()
         {
-            if (ProjectRoot == null) return;
-            var logs = Path.Combine(ProjectRoot, "logs");
+            var logs = ProjectRoot == null
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ENVIS Dashboard")
+                : Path.Combine(ProjectRoot, "logs");
             Directory.CreateDirectory(logs);
             Process.Start(new ProcessStartInfo("explorer.exe", "\"" + logs + "\"") { UseShellExecute = true });
         }
@@ -334,7 +470,7 @@ namespace EnvisDashboard
             if (!IsReady) throw new InvalidOperationException(SetupError);
         }
 
-        private static async Task<bool> IsSiteLiveAsync(CancellationToken cancellationToken)
+        private async Task<bool> IsSiteLiveAsync(CancellationToken cancellationToken)
         {
             using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {

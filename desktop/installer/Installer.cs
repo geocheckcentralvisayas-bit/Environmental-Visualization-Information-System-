@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -22,7 +23,7 @@ namespace EnvisSetup
     {
         public const string PayloadResource = "ENVISDashboard.payload.exe";
         public const string AppName = "ENVIS Dashboard";
-        public const string ProductVersion = "1.3.9";
+        public const string ProductVersion = "1.3.12";
         private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ENVIS Dashboard";
 
         public static string DefaultInstallDirectory
@@ -97,6 +98,7 @@ namespace EnvisSetup
         public static void Install(
             string installDirectory,
             string? projectRoot,
+            string? serverUrl,
             bool startMenuShortcut,
             bool desktopShortcut,
             Action<InstallProgress>? progress)
@@ -153,7 +155,7 @@ namespace EnvisSetup
                 File.Move(temporary, target);
 
                 Report(progress, 92, "Saving the dashboard project location...");
-                WriteConfiguration(projectRoot);
+                WriteConfiguration(projectRoot, serverUrl);
 
                 Report(progress, 95, "Creating shortcuts...");
                 if (startMenuShortcut) CreateShortcut(StartMenuShortcutPath, target);
@@ -166,12 +168,13 @@ namespace EnvisSetup
             }
         }
 
-        public static int RunSilent(string installDirectory, string? projectRoot, bool startMenu, bool desktop)
+        public static int RunSilent(string installDirectory, string? projectRoot, string? serverUrl, bool startMenu, bool desktop)
         {
             try
             {
                 projectRoot = ResolveProjectRoot(projectRoot);
-                Install(installDirectory, projectRoot, startMenu, desktop, null);
+                if (!string.IsNullOrWhiteSpace(serverUrl)) projectRoot = null;
+                Install(installDirectory, projectRoot, serverUrl, startMenu, desktop, null);
                 return 0;
             }
             catch (Exception error)
@@ -217,19 +220,38 @@ namespace EnvisSetup
             }
         }
 
-        private static void WriteConfiguration(string? projectRoot)
+        private static void WriteConfiguration(string? projectRoot, string? serverUrl)
         {
             Directory.CreateDirectory(DataDirectory);
             var configPath = Path.Combine(DataDirectory, "config.json");
 
-            if (string.IsNullOrWhiteSpace(projectRoot))
+            var server = NormalizeServer(serverUrl);
+            if (string.IsNullOrWhiteSpace(projectRoot) && server == null)
             {
                 DeleteQuietly(configPath);
                 return;
             }
 
-            var json = "{\n  \"projectRoot\": " + JsonSerializer.Serialize(projectRoot) + "\n}\n";
+            var lines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(projectRoot))
+            {
+                lines.Add("  \"projectRoot\": " + JsonSerializer.Serialize(projectRoot));
+            }
+            if (server != null)
+            {
+                lines.Add("  \"serverUrl\": " + JsonSerializer.Serialize(server));
+            }
+
+            var json = "{\n" + string.Join(",\n", lines) + "\n}\n";
             File.WriteAllText(configPath, json);
+        }
+
+        private static string? NormalizeServer(string? serverUrl)
+        {
+            if (string.IsNullOrWhiteSpace(serverUrl)) return null;
+            if (!Uri.TryCreate(serverUrl.Trim(), UriKind.Absolute, out var uri)) return null;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return null;
+            return uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/');
         }
 
         private static void WriteRegistryEntry(string installDirectory, string executable, string? projectRoot)

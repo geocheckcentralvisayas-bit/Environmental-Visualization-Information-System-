@@ -186,14 +186,24 @@ namespace EnvisDashboard
 
             menu.Items.Add("Open dashboard", null, delegate { RestoreWindow(); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Restart services", null, async delegate { await RestartServicesAsync(); });
-            menu.Items.Add("Stop services", null, async delegate { await StopServicesAsync(); });
-            menu.Items.Add(new ToolStripSeparator());
+            if (!_services.IsRemote)
+            {
+                menu.Items.Add("Restart services", null, async delegate { await RestartServicesAsync(); });
+                menu.Items.Add("Stop services", null, async delegate { await StopServicesAsync(); });
+                menu.Items.Add(new ToolStripSeparator());
+            }
             menu.Items.Add("Status...", null, delegate { ShowStatus(); });
             menu.Items.Add("Open logs folder", null, delegate { OpenLogsFolder(); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Exit (keep services running)", null, delegate { ExitApp(false); });
-            menu.Items.Add("Exit and stop services", null, delegate { ExitApp(true); });
+            if (_services.IsRemote)
+            {
+                menu.Items.Add("Exit", null, delegate { ExitApp(false); });
+            }
+            else
+            {
+                menu.Items.Add("Exit (keep services running)", null, delegate { ExitApp(false); });
+                menu.Items.Add("Exit and stop services", null, delegate { ExitApp(true); });
+            }
 
             _tray.Icon = Icon ?? SystemIcons.Application;
             _tray.Text = "ENVIS Dashboard";
@@ -255,25 +265,35 @@ namespace EnvisDashboard
             {
                 if (!_services.IsReady) throw new InvalidOperationException(_services.SetupError);
 
-                ShowSplash("Starting the dashboard...", "Checking whether the services are already running.");
-
-                var started = _services.StartSupervisor();
-                if (started)
+                if (_services.IsRemote)
                 {
-                    SetStatus("Starting the dashboard...", "Launching the web server, API and planning watcher.");
+                    ShowSplash("Connecting to the shared dashboard...", "Loading data from the host PC: " + _services.BaseUrl);
+                    AppendNote("remote mode: connecting to " + _services.BaseUrl);
                 }
                 else
                 {
-                    SetStatus("Connecting to the running dashboard...", "The services are already live.");
-                }
+                    ShowSplash("Starting the dashboard...", "Checking whether the services are already running.");
 
-                AppendNote(started
-                    ? "launching the services via the supervisor"
-                    : "services already live; connecting to them");
+                    var started = _services.StartSupervisor();
+                    if (started)
+                    {
+                        SetStatus("Starting the dashboard...", "Launching the web server, API and planning watcher.");
+                    }
+                    else
+                    {
+                        SetStatus("Connecting to the running dashboard...", "The services are already live.");
+                    }
+
+                    AppendNote(started
+                        ? "launching the services via the supervisor"
+                        : "services already live; connecting to them");
+                }
 
                 await _services.WaitUntilLiveAsync(
                     TimeSpan.FromSeconds(120),
-                    message => SetStatus(message, "The first run can take up to a minute."),
+                    message => SetStatus(message, _services.IsRemote
+                        ? "The host PC must be switched on and on the same office network."
+                        : "The first run can take up to a minute."),
                     _cancellation.Token);
 
                 SetStatus("Loading the dashboard...", "Opening the app window.");
@@ -379,7 +399,7 @@ namespace EnvisDashboard
             core.NavigationCompleted += handler;
             try
             {
-                core.Navigate(ServiceHost.BaseUrl);
+                core.Navigate(_services.BaseUrl);
 
                 var waited = await Task.WhenAny(
                     completion.Task,
@@ -496,19 +516,19 @@ namespace EnvisDashboard
                     var info = new ProcessStartInfo(browser)
                     {
                         UseShellExecute = false,
-                        Arguments = "--app=" + ServiceHost.BaseUrl +
+                        Arguments = "--app=" + _services.BaseUrl +
                                     " --window-size=1500,920 --user-data-dir=\"" + profile + "\"",
                     };
                     Process.Start(info);
                 }
                 else
                 {
-                    Process.Start(new ProcessStartInfo(ServiceHost.BaseUrl) { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo(_services.BaseUrl) { UseShellExecute = true });
                 }
             }
             catch
             {
-                Process.Start(new ProcessStartInfo(ServiceHost.BaseUrl) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(_services.BaseUrl) { UseShellExecute = true });
             }
         }
 

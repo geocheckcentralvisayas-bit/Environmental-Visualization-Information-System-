@@ -44,7 +44,12 @@ Run `desktop\dist\ENVIS Dashboard Setup.exe` and pick:
    rights** are needed.
 2. **Dashboard project folder** — the folder that contains `package.json` and
    `scripts\serve-live.mjs`. Setup pre-fills it when it can find the project next
-   to itself.
+   to itself. Only needed on the host PC.
+3. **Shared dashboard server (optional)** — on a colleague's PC, enter the host
+   address shown in the host's tray → Status, for example
+   `http://192.168.1.20:5173`. The app then uses the host's data, API and
+   offline map tiles, starts no local services, and needs no Node.js or project
+   folder. Leave it blank to run everything on this PC.
 
 It then creates Start Menu and Desktop shortcuts (both optional) and registers
 the app in **Settings → Apps → Installed apps** with a working uninstaller.
@@ -57,11 +62,29 @@ Silent install, for a script or a second PC:
   /PROJECTROOT:"D:\ENVIS Dashboard"
 ```
 
+Client PC (no project, no Node.js needed):
+
+```powershell
+"ENVIS Dashboard Setup.exe" /S /SERVER:http://192.168.1.20:5173
+```
+
 The installer only installs the **window app**. The dashboard itself is this
 project (Node services, `node_modules`, worker secrets, planning workbook), so
-the PC must already have the project somewhere; Setup records where. On a PC
-where the project lives elsewhere later, either reinstall or set the
-`ENVIS_PROJECT_ROOT` environment variable to that folder.
+the host PC must already have the project somewhere; Setup records where. On a
+PC where the project lives elsewhere later, either reinstall or set the
+`ENVIS_PROJECT_ROOT` environment variable to that folder. `ENVIS_SERVER_URL`
+overrides client mode for one run.
+
+The map works without internet because the host serves the bundled
+`offline-tiles\` pack (streets + satellite, zoom 7-12, about 23 MB). Once per
+project copy, while online:
+
+```powershell
+npm run data:tiles
+```
+
+Keep `offline-tiles\` with the project when copying it to another PC. Its tiles
+still carry the Esri/OpenStreetMap attribution shown on the map.
 
 ## Run
 
@@ -76,12 +99,14 @@ own folder, so keep it inside the project tree (it needs `node_modules`,
 
 Requirements on the target PC:
 
-1. **Node.js 20+** on `PATH` (the project's own requirement).
-2. **WebView2 runtime** — included with Windows 11 and with Microsoft Edge on
+1. **Host PC:** Node.js 20+ on `PATH`, the project's `node_modules`,
+   `worker\.dev.vars`, `CREDENTIALS.md` and the planning workbook already set up
+   (see the main `SETUP_NEW_PC.md`). Run `npm run data:tiles` once for offline
+   maps.
+2. **Client PC:** only the installer and the host's LAN address — no Node.js,
+   no project folder, no internet.
+3. **WebView2 runtime** — included with Windows 11 and with Microsoft Edge on
    Windows 10. If missing, install the Evergreen Runtime from Microsoft.
-3. The project's `node_modules`, `worker\.dev.vars` and `CREDENTIALS.md`
-   already set up (see the main `SETUP_NEW_PC.md`).
-4. The planning workbook at its OneDrive path for live updates.
 
 ## Tray menu
 
