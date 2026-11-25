@@ -130,6 +130,19 @@ Closing the window with **X** hides it to the tray.
 If the dashboard does not appear, `logs\desktop-app.log` says why, and
 `logs\services.log` shows whether the services themselves started.
 
+## Installer screenshots
+
+ENVIS Dashboard Windows installer screenshots are available in the `v1.3.10`
+GitHub release:
+
+- **Setup window** — `ENVIS-Dashboard-Setup-1.3.10.exe` `screenshots\installer-setup-45.png`
+- **Complete** — `ENVIS-Dashboard-Setup-1.3.10.exe` `screenshots\installer-complete.png`
+
+They show the installation location selection, progress bar, shortcut options
+(Desktop/Start Menu) and the Finish screen. The source images are also in the
+local `screenshots/` folder (currently placeholder — generate with the OpenCode
+image skill when credits are available).
+
 ## Notes
 
 - Neither file is **code-signed**. Windows SmartScreen may show

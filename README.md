@@ -147,11 +147,52 @@ flowchart LR
 
 ![Sign-in screen](docs/screenshots/login.png)
 
+### Installer
+
+ENVIS Dashboard Windows desktop app installer screenshots:
+
+- **Setup window** — installation location selection, progress bar, component options.
+- **Complete** — installation finished, shortcut creation (Desktop/Start Menu), Finish button.
+
+These images are stored in `screenshots/installer-setup-45.png` and
+`screenshots/installer-complete.png` once generated. They are also attached
+as release assets in the `v1.3.10` GitHub release.
+
 ### Spatial map
 
 One marker per establishment; rings show which registers the facility holds.
 
 ![Establishment and permit map](docs/screenshots/spatial-map.png)
+
+### Planning evidence
+
+Screenshots of the EMB 7 Accomplishment workbook audit, used to verify the
+planning data pipeline:
+
+- ![Audit counts](screenshots/planning-evidence/01-audit-counts.png)
+- ![Main sheet top](screenshots/planning-evidence/02-main-sheet-top.png)
+- ![Main sheet bottom](screenshots/planning-evidence/03-main-sheet-bottom.png)
+- ![Dashboard KPI](screenshots/planning-evidence/04-dashboard-kpi.png)
+
+These are evidence screenshots from the planning workbook, not dashboard UI.
+
+### Spatial map
+
+One marker per establishment; rings show which registers the facility holds.
+
+![Establishment and permit map](docs/screenshots/spatial-map.png)
+
+### Planning evidence
+
+Screenshots of the EMB 7 Accomplishment workbook audit, used to verify the
+planning data pipeline:
+
+- ![Audit counts](screenshots/planning-evidence/01-audit-counts.png)
+- ![Main sheet top](screenshots/planning-evidence/02-main-sheet-top.png)
+- ![Main sheet bottom](screenshots/planning-evidence/03-main-sheet-bottom.png)
+- ![Dashboard KPI](screenshots/planning-evidence/04-dashboard-kpi.png)
+
+These are evidence screenshots from the planning workbook, not dashboard UI.
 
 ### DP · PTO intercross
 
