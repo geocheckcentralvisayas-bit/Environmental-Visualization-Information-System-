@@ -1,0 +1,3 @@
+﻿# ENVIS Dashboard SHA-256 checksums
+14fdb68cf1fe301612044a1ac2a0f6273a50d782838e6cd8dd2946e99f912692  ENVIS Dashboard Setup.exe
+3ea2afc358ef9deb2fe8a7a36fd3a1b51427ff77e1e947ff27d8058fdb4d682e  ENVIS Dashboard.exe
