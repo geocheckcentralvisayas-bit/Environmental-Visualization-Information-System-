@@ -2,6 +2,8 @@
 
 A real desktop window for the dashboard, instead of a terminal plus a browser tab.
 
+Download: [ENVIS Dashboard Setup.exe](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/releases/download/v1.4.0/ENVIS%20Dashboard%20Setup.exe)
+
 - Compiled WinForms app hosting the site in **WebView2** (the Edge engine already
   installed on Windows 10/11) — no address bar, no browser chrome.
 - Starts the same services as `npm run live:lan`: Vite on `5173`, the Cloudflare

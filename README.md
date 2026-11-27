@@ -6,6 +6,8 @@
 [![React](https://img.shields.io/badge/React-19-61dafb)](#)
 [![License](https://img.shields.io/badge/license-MIS%20Credit-blue)](#)
 
+**Download the Windows app:** [ENVIS Dashboard Setup.exe (v1.4.0)](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/releases/download/v1.4.0/ENVIS%20Dashboard%20Setup.exe)
+
 **ENVIS Region VII** is a browser-based environmental permits and compliance
 intelligence platform for **DENR-EMB Region VII**. It brings the region's
 discharge permits, permits to operate, hazardous-waste registrations, ECC/CNC
@@ -142,9 +144,9 @@ flowchart LR
   authenticated Worker API; a build without `VITE_API_BASE` is an unauthenticated
   static snapshot and must not be published with private data.
 
-## Screenshots
+## Screenshots and feature showcase
 
-### Sign in
+### Sign in and offline showcase
 
 The desktop app's sign-in screen has two tabs. **Offline password** needs only
 the MIS-issued offline password (no username) and works with no internet;
@@ -152,66 +154,60 @@ the MIS-issued offline password (no username) and works with no internet;
 
 ![Offline and online sign-in tabs](docs/screenshots/offline-login.png)
 
-The live dashboard sign-in screen used by the browser is unchanged:
+The live dashboard sign-in screen used in a browser:
 
 ![Sign-in screen](docs/screenshots/login.png)
 
 ### Installer
 
-The Windows installer shows a **Quick start** panel when installation finishes:
-install location, the host address field, both sign-in tabs, how MIS sets the
-offline password, and the tray switch. It also writes a full guide named
-`START HERE.txt` into the install folder. The setup window itself has fields
-for the install folder, optional host address, optional public dashboard URL,
-Start Menu / Desktop shortcuts and the license agreement.
+The setup window and the finish panel, including the **Quick start** guide and
+the LAN sync token field. A full guide is also written to `START HERE.txt`.
 
-### Spatial map
+| Setup | Finished |
+| --- | --- |
+| <img src="docs/screenshots/installer-setup.png" alt="ENVIS installer setup" width="420"> | <img src="docs/screenshots/installer-complete.png" alt="ENVIS installer complete" width="420"> |
 
-One marker per establishment; rings show which registers the facility holds.
+### Feature tabs
 
-![Establishment and permit map](docs/screenshots/spatial-map.png)
+Every tab in the dashboard has a screenshot. Click a thumbnail to open it.
 
-### DP · PTO intercross
+| Tab | Showcase | Tab | Showcase |
+| --- | --- | --- | --- |
+| Overview | <img src="docs/screenshots/overview.png" alt="Overview" width="260"> | Ambient Corner | <img src="docs/screenshots/ambient.png" alt="Ambient Corner" width="260"> |
+| EMED Monitoring | <img src="docs/screenshots/emed.png" alt="EMED Monitoring" width="260"> | Planning Accomplishments | <img src="docs/screenshots/planning.png" alt="Planning" width="260"> |
+| Discharge Permits | <img src="docs/screenshots/dp.png" alt="Discharge Permits" width="260"> | Permit to Operate | <img src="docs/screenshots/pto.png" alt="Permit to Operate" width="260"> |
+| Renewal Watch | <img src="docs/screenshots/renewal.png" alt="Renewal Watch" width="260"> | DP · PTO Intercross | <img src="docs/screenshots/sites.png" alt="Intercross" width="260"> |
+| Spatial Map | <img src="docs/screenshots/map.png" alt="Spatial Map" width="260"> | Layers & Overlays | <img src="docs/screenshots/spatial.png" alt="Layers" width="260"> |
+| Spatial Screening | <img src="docs/screenshots/screening.png" alt="Screening" width="260"> | Data Quality | <img src="docs/screenshots/quality.png" alt="Data Quality" width="260"> |
+| Data Tables | <img src="docs/screenshots/tables.png" alt="Data Tables" width="260"> | Reports & Export | <img src="docs/screenshots/reports.png" alt="Reports" width="260"> |
+| Hazardous Waste | <img src="docs/screenshots/hw.png" alt="Hazardous Waste" width="260"> | Solid Waste (SWM) | <img src="docs/screenshots/swm.png" alt="SWM" width="260"> |
+| ECC & CNC | <img src="docs/screenshots/clearances.png" alt="ECC and CNC" width="260"> | ECC / CNC Ultralist | <img src="docs/screenshots/ecc-ultralist.png" alt="Ultralist" width="260"> |
+| NOV & Legal Cases | <img src="docs/screenshots/legal.png" alt="Legal" width="260"> | PCO Corner | <img src="docs/screenshots/pco-corner.png" alt="PCO Corner" width="260"> |
+| Accounts & Activity | <img src="docs/screenshots/admin.png" alt="Accounts and Activity" width="260"> | About & License | <img src="docs/screenshots/about.png" alt="About" width="260"> |
 
-![DP and PTO establishment intercross](docs/screenshots/dp-pto-intercross.png)
+Older detailed captures remain available:
+[EMED overview](docs/screenshots/emed-overview.png),
+[EMED inspector](docs/screenshots/emed-inspector-performance.png),
+[EMED worksheets](docs/screenshots/emed-worksheets.png),
+[spatial map](docs/screenshots/spatial-map.png),
+[DP · PTO intercross](docs/screenshots/dp-pto-intercross.png),
+[ECC / CNC Ultralist](docs/screenshots/ecc-cnc-ultralist.png),
+[legal docket](docs/screenshots/legal-docket.png),
+[about and license](docs/screenshots/about-license.png),
+[contact directory](docs/screenshots/contact-directory.png).
 
-### ECC / CNC Ultralist
-
-![ECC and CNC Ultralist](docs/screenshots/ecc-cnc-ultralist.png)
-
-### Legal docket
-
-![NOV and legal cases](docs/screenshots/legal-docket.png)
-
-### EMED Monitoring Dashboards
-
-Executive overview: overall attainment, monitoring and survey totals, division
-attainment and a KRA scorecard. Each chart can be filtered by program.
-
-![EMED performance overview](docs/screenshots/emed-overview.png)
-
-Inspector performance: ranked report lines, KRA totals and a selectable
-individual KRA profile.
-
-![EMED inspector performance](docs/screenshots/emed-inspector-performance.png)
-
-Worksheet explorer: all 50 tabs from the source workbook, grouped by category,
-with charts and the complete sortable/searchable table for the selected sheet.
-
-![EMED worksheet explorer](docs/screenshots/emed-worksheets.png)
-
-Refresh the EMED dataset with `npm run data:emed` (it re-downloads the workbook;
-`node scripts/build-emed.mjs` reuses the local cache). Publish with
+Refresh the EMED dataset with `npm run data:emed`; publish with
 `npm run api:upload` locally or `npm run api:upload:remote` for the deployed API.
 
-### About & License
+### Planning evidence
 
-Author, license, the full DENR-EMB Region VII contact directory and build
-version history live in the **About & License** page.
+Live screenshots of the **Planning Accomplishments 2026** page, which reads the
+EMB 7 Accomplishment workbook:
 
-![About and license](docs/screenshots/about-license.png)
-
-![DENR-EMB Region VII contact directory](docs/screenshots/contact-directory.png)
+| Planning evidence | |
+| --- | --- |
+| <img src="docs/screenshots/planning-evidence/01-planning-accomplishments.png" alt="Planning indicators and KPIs" width="420"> | <img src="docs/screenshots/planning-evidence/02-planning-details.png" alt="Planning details" width="420"> |
+| <img src="docs/screenshots/planning-evidence/03-planning-summary.png" alt="Planning summary" width="420"> | |
 
 ## Roles and access
 
