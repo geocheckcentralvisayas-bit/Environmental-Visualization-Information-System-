@@ -9,6 +9,7 @@ import {
   type ActivityEntry, type ActivityType, type Role, type StoredAccount,
 } from '../lib/auth';
 import { requestExport } from '../lib/exportGate';
+import { offlineAccessStatus, setOfflinePassword, type OfflineAccessStatus } from '../lib/offlineAccess';
 import { downloadCsv, formatNumber } from '../lib/format';
 import { Chip, DataTable, Panel, SectionHeading, StatCard, type Column } from '../components/ui';
 
@@ -97,7 +98,7 @@ function PasswordField({ label, value, onChange }: { label: string; value: strin
 
 export function AdminPage() {
   const session = getSession();
-  const [tab, setTab] = useState<'accounts' | 'activity'>('accounts');
+  const [tab, setTab] = useState<'accounts' | 'activity' | 'offline'>('accounts');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -116,6 +117,9 @@ export function AdminPage() {
 
   const [activityFilter, setActivityFilter] = useState<ActivityType | 'all'>('all');
   const [activitySearch, setActivitySearch] = useState('');
+
+  const [offlineStatus, setOfflineStatus] = useState<OfflineAccessStatus | null>(null);
+  const [offlineForm, setOfflineForm] = useState({ password: '', newPassword: '', confirm: '' });
 
   const fail = (err: unknown) => {
     setError(err instanceof Error ? err.message : 'Something went wrong.');
@@ -138,9 +142,42 @@ export function AdminPage() {
     }
   };
 
+  const refreshOffline = async () => {
+    try {
+      setOfflineStatus(await offlineAccessStatus());
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const saveOfflinePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (offlineForm.newPassword !== offlineForm.confirm) {
+      fail(new Error('The new offline password and its confirmation do not match.'));
+      return;
+    }
+    try {
+      setBusy(true);
+      await setOfflinePassword({
+        username: session?.username ?? '',
+        password: offlineForm.password,
+        newPassword: offlineForm.newPassword,
+      });
+      setOfflineForm({ password: '', newPassword: '', confirm: '' });
+      setNotice('Offline access password saved. LAN clients receive it on their next sync.');
+      setError('');
+      await refreshOffline();
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     void refreshAccounts();
     void refreshActivity();
+    void refreshOffline();
   }, []);
 
   useEffect(() => {
@@ -470,7 +507,7 @@ export function AdminPage() {
                   <Plus size={13} /> Add account
                 </button>
               </>
-            ) : (
+            ) : tab === 'activity' ? (
               <>
                 <button type="button" className="btn" onClick={handleClearActivity}>
                   <Trash2 size={13} /> Clear log
@@ -479,7 +516,7 @@ export function AdminPage() {
                   <Download size={13} /> Export activity
                 </button>
               </>
-            )}
+            ) : null}
           </div>
         }
       />
@@ -497,6 +534,7 @@ export function AdminPage() {
         {([
           { id: 'accounts', label: `Accounts (${stats.total})` },
           { id: 'activity', label: `Activity (${activityStats.total})` },
+          { id: 'offline', label: 'Offline access' },
         ] as const).map((item) => (
           <button
             key={item.id}
@@ -504,6 +542,7 @@ export function AdminPage() {
             onClick={() => {
               setTab(item.id);
               if (item.id === 'activity') void refreshActivity();
+              if (item.id === 'offline') void refreshOffline();
             }}
             className={clsx(
               'border-b-2 px-4 py-2 text-[12px] font-medium transition-colors',
@@ -594,6 +633,92 @@ export function AdminPage() {
       )}
 
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportAccounts} />
+
+      {tab === 'offline' && (
+        <>
+          <Panel
+            title="Offline copy password"
+            subtitle="One password unlocks the installed offline copy on every PC. Only MIS can create or change it."
+          >
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+              <div className="space-y-3">
+                <div
+                  className={clsx(
+                    'rounded-lg border px-3 py-2 text-[11.5px]',
+                    offlineStatus?.configured
+                      ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                      : 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+                  )}
+                >
+                  {offlineStatus === null
+                    ? 'Checking the offline password…'
+                    : offlineStatus.configured
+                      ? `Configured${offlineStatus.updatedAt ? ` on ${timeLabel(Date.parse(offlineStatus.updatedAt))}` : ''}.`
+                      : 'Not configured. Clients that cannot reach the host will stay locked until you set it.'}
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  The password is stored only as a salted PBKDF2-SHA256 hash in
+                  <span className="text-slate-400"> offline-access.json</span> beside the project.
+                  The
+                  installer snapshot and each LAN sync copy that file, so a change here reaches
+                  client PCs automatically. Rebooting the host or rebuilding the installer is not
+                  required, but PCs already at home keep the old password until they sync again.
+                </p>
+                <button type="button" className="btn h-9" onClick={() => { void refreshOffline(); }}>
+                  <RefreshCw size={13} /> Refresh status
+                </button>
+              </div>
+
+              <form onSubmit={saveOfflinePassword} className="space-y-3">
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10.5px] leading-relaxed text-slate-500">
+                  The offline password is separate — it is not the MIS account password and no
+                  account login uses it. Your own MIS login password below only confirms that you
+                  are allowed to change it.
+                </div>
+                <Field label="Your MIS login password (confirmation only)">
+                  <input
+                    className="input h-9 w-full"
+                    type="password"
+                    value={offlineForm.password}
+                    onChange={(event) => setOfflineForm({ ...offlineForm, password: event.target.value })}
+                    autoComplete="current-password"
+                    required
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="New offline password">
+                    <input
+                      className="input h-9 w-full"
+                      type="password"
+                      minLength={8}
+                      value={offlineForm.newPassword}
+                      onChange={(event) => setOfflineForm({ ...offlineForm, newPassword: event.target.value })}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </Field>
+                  <Field label="Confirm">
+                    <input
+                      className="input h-9 w-full"
+                      type="password"
+                      minLength={8}
+                      value={offlineForm.confirm}
+                      onChange={(event) => setOfflineForm({ ...offlineForm, confirm: event.target.value })}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </Field>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button type="submit" disabled={busy} className="btn btn-primary h-9">
+                    <KeyRound size={13} /> {busy ? 'Saving…' : offlineStatus?.configured ? 'Change password' : 'Create password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </Panel>
+        </>
+      )}
 
       {showAdd && (
         <Modal title="Add account" onClose={() => setShowAdd(false)}>

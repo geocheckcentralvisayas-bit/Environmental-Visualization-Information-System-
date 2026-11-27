@@ -33,9 +33,9 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <PublishTrimmed>false</PublishTrimmed>
 
-    <Version>1.3.12</Version>
-    <FileVersion>1.3.12.0</FileVersion>
-    <AssemblyVersion>1.3.12.0</AssemblyVersion>
+    <Version>1.4.0</Version>
+    <FileVersion>1.4.0.0</FileVersion>
+    <AssemblyVersion>1.4.0.0</AssemblyVersion>
     <Product>ENVIS Dashboard Setup</Product>
     <Description>Installer for the ENVIS Region VII dashboard desktop app.</Description>
     <Company>Environmental Management Bureau Region VII</Company>
@@ -44,6 +44,17 @@
 
   <ItemGroup Condition="Exists('$(AppExePath)')">
     <EmbeddedResource Include="$(AppExePath)" LogicalName="ENVISDashboard.payload.exe" />
+  </ItemGroup>
+
+  <!-- The license shown by Setup and copied into the install folder. -->
+  <ItemGroup>
+    <EmbeddedResource Include="LICENSE.txt" LogicalName="ENVISDashboard.LICENSE.txt" />
+  </ItemGroup>
+
+  <!-- The static offline copy (app + data + map tiles) used when the host PC is
+       unreachable. desktop\build.ps1 produces and passes this zip. -->
+  <ItemGroup Condition="Exists('$(OfflineAppZip)')">
+    <EmbeddedResource Include="$(OfflineAppZip)" LogicalName="ENVISDashboard.offline-app.zip" />
   </ItemGroup>
 
   <Target Name="RequirePayload" BeforeTargets="BeforeBuild" Condition="!Exists('$(AppExePath)')">

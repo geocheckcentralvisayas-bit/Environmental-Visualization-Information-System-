@@ -14,7 +14,8 @@ export interface Basemap {
   maxNativeZoom?: number;
 }
 
-const LOCAL_TILES = import.meta.env.DEV;
+// The desktop offline copy ships its own tiles next to index.html.
+const LOCAL_TILES = import.meta.env.DEV || import.meta.env.VITE_OFFLINE === '1';
 const PACK_MAX_ZOOM = 12;
 
 const REMOTE = {

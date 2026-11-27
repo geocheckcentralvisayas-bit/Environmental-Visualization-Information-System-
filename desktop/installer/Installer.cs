@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -22,8 +23,51 @@ namespace EnvisSetup
     internal static class Installer
     {
         public const string PayloadResource = "ENVISDashboard.payload.exe";
+        public const string OfflineResource = "ENVISDashboard.offline-app.zip";
+        public const string LicenseResource = "ENVISDashboard.LICENSE.txt";
+
+        /// <summary>The agreement text shown by Setup and installed beside the app.</summary>
+        public static string LicenseText
+        {
+            get
+            {
+                using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(LicenseResource))
+                {
+                    if (stream == null) return "License text is missing from this build.";
+                    using (var reader = new StreamReader(stream))
+                    {
+                        return reader.ReadToEnd();
+                    }
+                }
+            }
+        }
         public const string AppName = "ENVIS Dashboard";
-        public const string ProductVersion = "1.3.12";
+        public const string ProductVersion = "1.4.0";
+
+        /// <summary>Left in the install folder so users can install and sign in without this guide.</summary>
+        private const string QuickStartGuide =
+            "ENVIS Dashboard " + ProductVersion + " - START HERE\r\n" +
+            "\r\n" +
+            "INSTALL\r\n" +
+            "1. Run \"ENVIS Dashboard Setup.exe\", accept the license, choose a folder, click Install.\r\n" +
+            "2. Office PC (host): leave \"Shared dashboard server\" blank.\r\n" +
+            "   Other PCs: enter the host address, e.g. http://192.168.1.31:5173\r\n" +
+            "3. \"Public dashboard URL\" is the deployed website; leave it blank until it exists.\r\n" +
+            "4. Finish with \"Open ENVIS Dashboard now\" checked.\r\n" +
+            "\r\n" +
+            "SIGN IN\r\n" +
+            "- Online sign in: your ENVIS username and password. Needs the office LAN or the public site.\r\n" +
+            "- Offline password: ONE password only, no username. Works with no internet.\r\n" +
+            "- Only MIS can create or change that password: sign in to the live dashboard as MIS,\r\n" +
+            "  open Administration -> Offline access, and set \"New offline password\".\r\n" +
+            "- The tray icon switches between the live dashboard and the offline copy at any time.\r\n" +
+            "- LAN sync needs the shared token the host sets as ENVIS_SYNC_TOKEN; enter the same\r\n" +
+            "  value in the installer's LAN sync token field on client PCs.\r\n" +
+            "\r\n" +
+            "FILES\r\n" +
+            "- Program: this folder.  Data, offline copy, config and logs: %LOCALAPPDATA%\\ENVIS Dashboard\r\n" +
+            "- Uninstall: Apps & Features -> ENVIS Dashboard -> Uninstall\r\n";
+
         private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ENVIS Dashboard";
 
         public static string DefaultInstallDirectory
@@ -99,6 +143,8 @@ namespace EnvisSetup
             string installDirectory,
             string? projectRoot,
             string? serverUrl,
+            string? onlineUrl,
+            string? syncToken,
             bool startMenuShortcut,
             bool desktopShortcut,
             Action<InstallProgress>? progress)
@@ -154,27 +200,90 @@ namespace EnvisSetup
                 DeleteQuietly(target);
                 File.Move(temporary, target);
 
-                Report(progress, 92, "Saving the dashboard project location...");
-                WriteConfiguration(projectRoot, serverUrl);
+                // Keep the agreement readable after installation.
+                try
+                {
+                    File.WriteAllText(Path.Combine(installDirectory, "LICENSE.txt"), LicenseText);
+                    File.WriteAllText(Path.Combine(installDirectory, "START HERE.txt"), QuickStartGuide);
+                }
+                catch
+                {
+                    // A locked folder must not fail the whole install.
+                }
 
-                Report(progress, 95, "Creating shortcuts...");
+                Report(progress, 91, "Installing the offline dashboard copy (used when the host PC is off)...");
+                InstallOfflineApp(progress);
+
+                Report(progress, 95, "Saving the dashboard project location...");
+                WriteConfiguration(projectRoot, serverUrl, onlineUrl, syncToken);
+
+                Report(progress, 97, "Creating shortcuts...");
                 if (startMenuShortcut) CreateShortcut(StartMenuShortcutPath, target);
                 if (desktopShortcut) CreateShortcut(DesktopShortcutPath, target);
 
-                Report(progress, 98, "Registering the app in Apps & Features...");
+                Report(progress, 99, "Registering the app in Apps & Features...");
                 WriteRegistryEntry(installDirectory, target, projectRoot);
 
                 Report(progress, 100, "Done.");
             }
         }
 
-        public static int RunSilent(string installDirectory, string? projectRoot, string? serverUrl, bool startMenu, bool desktop)
+        /// <summary>
+        /// Extracts the static snapshot (app, datasets, map tiles) that the client
+        /// app opens when the host PC is unreachable. A build without the resource
+        /// remains host-only, so older build flows keep working.
+        /// </summary>
+        private static void InstallOfflineApp(Action<InstallProgress>? progress)
+        {
+            using (var payload = Assembly.GetExecutingAssembly().GetManifestResourceStream(OfflineResource))
+            {
+                if (payload == null) return;
+
+                var target = Path.GetFullPath(Path.Combine(DataDirectory, "offline-app"));
+                var prefix = target + Path.DirectorySeparatorChar;
+                if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+                Directory.CreateDirectory(target);
+
+                using (var archive = new ZipArchive(payload, ZipArchiveMode.Read))
+                {
+                    var total = archive.Entries.Count;
+                    var index = 0;
+                    foreach (var entry in archive.Entries)
+                    {
+                        index += 1;
+                        if (string.IsNullOrEmpty(entry.Name))
+                        {
+                            Directory.CreateDirectory(Path.GetFullPath(Path.Combine(target, entry.FullName)));
+                            continue;
+                        }
+
+                        var destination = Path.GetFullPath(Path.Combine(target, entry.FullName));
+                        if (!destination.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException(
+                                "The offline copy in this Setup.exe contains an unsafe path: " + entry.FullName);
+                        }
+
+                        Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? target);
+                        entry.ExtractToFile(destination, overwrite: true);
+
+                        if (total > 200 && index % 200 == 0)
+                        {
+                            Report(progress, 91 + (index * 3 / total),
+                                "Installing the offline dashboard copy... " + index + " of " + total + " files");
+                        }
+                    }
+                }
+            }
+        }
+
+        public static int RunSilent(string installDirectory, string? projectRoot, string? serverUrl, string? onlineUrl, string? syncToken, bool startMenu, bool desktop)
         {
             try
             {
                 projectRoot = ResolveProjectRoot(projectRoot);
-                if (!string.IsNullOrWhiteSpace(serverUrl)) projectRoot = null;
-                Install(installDirectory, projectRoot, serverUrl, startMenu, desktop, null);
+                if (!string.IsNullOrWhiteSpace(serverUrl) || !string.IsNullOrWhiteSpace(onlineUrl) || !string.IsNullOrWhiteSpace(syncToken)) projectRoot = null;
+                Install(installDirectory, projectRoot, serverUrl, onlineUrl, syncToken, startMenu, desktop, null);
                 return 0;
             }
             catch (Exception error)
@@ -220,13 +329,15 @@ namespace EnvisSetup
             }
         }
 
-        private static void WriteConfiguration(string? projectRoot, string? serverUrl)
+        private static void WriteConfiguration(string? projectRoot, string? serverUrl, string? onlineUrl, string? syncToken)
         {
             Directory.CreateDirectory(DataDirectory);
             var configPath = Path.Combine(DataDirectory, "config.json");
 
             var server = NormalizeServer(serverUrl);
-            if (string.IsNullOrWhiteSpace(projectRoot) && server == null)
+            var online = NormalizeOnlineUrl(onlineUrl);
+            var token = string.IsNullOrWhiteSpace(syncToken) ? null : syncToken.Trim();
+            if (string.IsNullOrWhiteSpace(projectRoot) && server == null && online == null && token == null)
             {
                 DeleteQuietly(configPath);
                 return;
@@ -241,6 +352,14 @@ namespace EnvisSetup
             {
                 lines.Add("  \"serverUrl\": " + JsonSerializer.Serialize(server));
             }
+            if (online != null)
+            {
+                lines.Add("  \"onlineUrl\": " + JsonSerializer.Serialize(online));
+            }
+            if (token != null)
+            {
+                lines.Add("  \"syncToken\": " + JsonSerializer.Serialize(token));
+            }
 
             var json = "{\n" + string.Join(",\n", lines) + "\n}\n";
             File.WriteAllText(configPath, json);
@@ -251,7 +370,14 @@ namespace EnvisSetup
             if (string.IsNullOrWhiteSpace(serverUrl)) return null;
             if (!Uri.TryCreate(serverUrl.Trim(), UriKind.Absolute, out var uri)) return null;
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return null;
+            if (!string.IsNullOrEmpty(uri.UserInfo)) return null;
             return uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/');
+        }
+
+        private static string? NormalizeOnlineUrl(string? value)
+        {
+            var parsed = NormalizeServer(value);
+            return parsed != null && parsed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? parsed : null;
         }
 
         private static void WriteRegistryEntry(string installDirectory, string executable, string? projectRoot)

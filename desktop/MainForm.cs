@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -25,6 +26,8 @@ namespace EnvisDashboard
         private readonly Label _footer = new Label();
         private readonly ProgressBar _progress = new ProgressBar();
         private readonly WebView2 _webView = new WebView2();
+        private readonly System.Windows.Forms.Timer _syncTimer = new System.Windows.Forms.Timer();
+        private bool _syncing;
         private readonly NotifyIcon _tray = new NotifyIcon();
 
         private bool _webReady;
@@ -186,6 +189,20 @@ namespace EnvisDashboard
 
             menu.Items.Add("Open dashboard", null, delegate { RestoreWindow(); });
             menu.Items.Add(new ToolStripSeparator());
+            if (_services.CanUseOfflineCopy)
+            {
+                var modeItem = new ToolStripMenuItem("Switch to offline copy");
+                modeItem.Click += async delegate
+                {
+                    await SwitchModeAsync(!_services.IsOfflineCopy);
+                };
+                menu.Opening += delegate
+                {
+                    modeItem.Text = _services.IsOfflineCopy ? "Switch to live dashboard" : "Switch to offline copy";
+                };
+                menu.Items.Add(modeItem);
+                menu.Items.Add(new ToolStripSeparator());
+            }
             if (!_services.IsRemote)
             {
                 menu.Items.Add("Restart services", null, async delegate { await RestartServicesAsync(); });
@@ -267,8 +284,26 @@ namespace EnvisDashboard
 
                 if (_services.IsRemote)
                 {
-                    ShowSplash("Connecting to the shared dashboard...", "Loading data from the host PC: " + _services.BaseUrl);
-                    AppendNote("remote mode: connecting to " + _services.BaseUrl);
+                    ShowSplash("Connecting to the live dashboard...", "Looking for the office host, then the internet dashboard.");
+                    AppendNote("remote mode: checking " + _services.BaseUrl);
+
+                    await _services.StartRemoteAsync(_cancellation.Token);
+
+                    if (_services.IsOfflineCopy)
+                    {
+                        SetStatus("Opening the offline copy...", "No live dashboard is reachable. Showing the last synced data.");
+                        AppendNote("no live dashboard reachable; using the offline copy");
+                    }
+                    else if (_services.IsOnlineLive)
+                    {
+                        ShowSplash("Connected over the internet...", "Loading the newest dashboard and data.");
+                        AppendNote("internet dashboard reachable; using it");
+                    }
+                    else
+                    {
+                        ShowSplash("Connected to the shared dashboard...", "Loading live data from the host PC.");
+                        AppendNote("host reachable; using live data");
+                    }
                 }
                 else
                 {
@@ -301,6 +336,11 @@ namespace EnvisDashboard
 
                 HideSplash();
                 AppendNote("dashboard loaded");
+
+                if (_services.IsRemote && !_services.IsOfflineCopy)
+                {
+                    StartOfflineSync();
+                }
             }
             catch (OperationCanceledException) when (!_cancellation.IsCancellationRequested)
             {
@@ -352,9 +392,23 @@ namespace EnvisDashboard
                 core.Settings.IsStatusBarEnabled = false;
                 core.Settings.IsZoomControlEnabled = true;
 
+                core.NavigationStarting += delegate (object? sender, CoreWebView2NavigationStartingEventArgs args)
+                {
+                    if (!IsAllowedNavigation(args.Uri))
+                    {
+                        args.Cancel = true;
+                        AppendNote("blocked navigation to " + args.Uri);
+                    }
+                };
+
                 core.NewWindowRequested += delegate (object? sender, CoreWebView2NewWindowRequestedEventArgs args)
                 {
                     args.Handled = true;
+                    if (!IsAllowedNavigation(args.Uri))
+                    {
+                        AppendNote("blocked popup to " + args.Uri);
+                        return;
+                    }
                     try
                     {
                         Process.Start(new ProcessStartInfo(args.Uri) { UseShellExecute = true });
@@ -371,10 +425,48 @@ namespace EnvisDashboard
                     AppendNote("webview process failed: " + args.ProcessFailedKind);
                 };
 
+                core.WebMessageReceived += HandlePageMessage;
+
                 _webReady = true;
             }
 
             await NavigateAndWaitAsync(cancellationToken).ConfigureAwait(true);
+        }
+
+        /// <summary>
+        /// The WebView may only show the current dashboard origin, the installed
+        /// snapshot, or the configured public site. This stops a data-driven
+        /// link from turning the window into an arbitrary browser.
+        /// </summary>
+        private bool IsAllowedNavigation(string value)
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return false;
+            if (string.Equals(uri.Scheme, "about", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(uri.Scheme, "data", StringComparison.OrdinalIgnoreCase)) return true;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+
+            var authority = uri.GetLeftPart(UriPartial.Authority);
+            if (string.Equals(authority, "https://envis.local", StringComparison.OrdinalIgnoreCase) &&
+                _services.IsOfflineCopy) return true;
+            if (Uri.TryCreate(_services.BaseUrl, UriKind.Absolute, out var current) &&
+                string.Equals(authority, current.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)) return true;
+            if (_services.OnlineUrl != null &&
+                Uri.TryCreate(_services.OnlineUrl, UriKind.Absolute, out var online) &&
+                string.Equals(authority, online.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Maps the installed snapshot to a normal https origin. Safe to call on
+        /// every navigation, so switching modes at runtime keeps working.
+        /// </summary>
+        private void ApplyOfflineMapping(CoreWebView2 core)
+        {
+            if (!_services.IsOfflineCopy || _services.OfflineAppDirectory == null) return;
+            core.SetVirtualHostNameToFolderMapping(
+                "envis.local",
+                _services.OfflineAppDirectory,
+                CoreWebView2HostResourceAccessKind.DenyCors);
         }
 
         /// <summary>
@@ -386,6 +478,8 @@ namespace EnvisDashboard
         {
             var core = _webView.CoreWebView2;
             if (core == null) throw new InvalidOperationException("The app window is not available.");
+
+            ApplyOfflineMapping(core);
 
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             EventHandler<CoreWebView2NavigationCompletedEventArgs> handler = null!;
@@ -418,6 +512,182 @@ namespace EnvisDashboard
             finally
             {
                 core.NavigationCompleted -= handler;
+            }
+        }
+
+        private void StartOfflineSync()
+        {            _ = SyncOfflineAsync();
+
+            _syncTimer.Interval = (int)TimeSpan.FromMinutes(15).TotalMilliseconds;
+            _syncTimer.Tick += async delegate { await SyncOfflineAsync(); };
+            _syncTimer.Start();
+        }
+
+        /// <summary>Best effort: a failed sync must never interrupt the dashboard.</summary>
+        private async Task SyncOfflineAsync()
+        {
+            if (_syncing || _cancellation.IsCancellationRequested) return;
+            _syncing = true;
+            try
+            {
+                // ServiceHost writes the summary to the same log.
+                await _services.SyncOfflineCopyAsync(_cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // The app is shutting down.
+            }
+            catch (Exception error)
+            {
+                AppendNote("offline sync failed: " + error.Message);
+            }
+            finally
+            {
+                _syncing = false;
+            }
+        }
+
+        /// <summary>
+        /// Handles the sign-in screen's "Connect to the live dashboard" button.
+        /// The page stays put when nothing is reachable, so it can explain why.
+        /// </summary>
+        private async void HandlePageMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
+        {
+            if (_busy) return;
+            try
+            {
+                using (var message = JsonDocument.Parse(args.WebMessageAsJson))
+                {
+                    var root = message.RootElement;
+                    if (!root.TryGetProperty("type", out var type) || type.GetString() != "envis:switch") return;
+                    var mode = root.TryGetProperty("mode", out var value) ? value.GetString() : null;
+
+                    if (mode == "offline")
+                    {
+                        if (!_services.CanUseOfflineCopy)
+                        {
+                            PostSwitchResult(false, "The offline copy is not installed on this PC. Run the ENVIS Dashboard setup again to restore it.");
+                            return;
+                        }
+                        await SwitchModeAsync(true);
+                        return;
+                    }
+                    if (mode != "online") return;
+
+                    _busy = true;
+                    try
+                    {
+                        ShowSplash(
+                            "Connecting to the live dashboard...",
+                            _services.IsRemote
+                                ? "Looking for the office host, then the internet dashboard."
+                                : "Starting the dashboard services on this PC.");
+                        var live = await _services.TryUseLiveHostAsync(_cancellation.Token);
+                        if (!live)
+                        {
+                            HideSplash();
+                            PostSwitchResult(false, !_services.IsRemote
+                                ? "The dashboard services on this PC are not running. Use Restart services from the tray menu, then try again."
+                                : _services.OnlineUrl == null
+                                    ? "No live dashboard is configured. Ask MIS to set it in the installer, or connect to the office LAN."
+                                    : "The office host and the internet dashboard are not reachable right now.");
+                            AppendNote("page asked for the live dashboard; nothing reachable");
+                            return;
+                        }
+
+                        await EnsureWebViewAsync(_cancellation.Token);
+                        HideSplash();
+                        AppendNote("switched to the live dashboard from the sign-in screen");
+                    }
+                    finally
+                    {
+                        _busy = false;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The app is shutting down.
+            }
+            catch (Exception error)
+            {
+                AppendNote("live switch failed: " + error.Message);
+                PostSwitchResult(false, "The live dashboard could not be opened. The offline view is still available.");
+            }
+        }
+
+        private void PostSwitchResult(bool ok, string? message)
+        {
+            try
+            {
+                _webView.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                {
+                    type = "envis:switch-result",
+                    ok,
+                    message = message ?? string.Empty,
+                }));
+            }
+            catch
+            {
+                // The page navigated away: nothing to tell.
+            }
+        }
+
+        /// <summary>
+        /// Lets the user pick the live host or the offline copy from the tray,
+        /// e.g. to check synced data before leaving the office network.
+        /// </summary>
+        private async Task SwitchModeAsync(bool useOfflineCopy)
+        {
+            if (_busy) return;
+            _busy = true;
+            try
+            {
+                if (useOfflineCopy)
+                {
+                    _services.UseOfflineCopy();
+                    ShowSplash("Opening the offline copy...", "Showing the last data synced from the host PC.");
+                }
+                else
+                {
+                    ShowSplash(
+                        "Connecting to the live dashboard...",
+                        _services.IsRemote
+                            ? "Looking for the office host, then the internet dashboard."
+                            : "Starting the dashboard services on this PC.");
+                    if (!await _services.TryUseLiveHostAsync(_cancellation.Token))
+                    {
+                        _services.UseOfflineCopy();
+                        MessageBox.Show(
+                            this,
+                            _services.IsRemote
+                                ? "The office host and the internet dashboard are not reachable right now.\n\nThe offline copy stays open."
+                                : "The dashboard services on this PC did not start.\n\nThe offline copy stays open.",
+                            "ENVIS Dashboard",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                        AppendNote("live dashboard unreachable; stayed on the offline copy");
+                    }
+                }
+
+                await EnsureWebViewAsync(_cancellation.Token);
+                HideSplash();
+                AppendNote(_services.IsOfflineCopy
+                    ? "showing the offline copy"
+                    : _services.IsOnlineLive ? "showing the internet dashboard" : "showing the live host");
+            }
+            catch (OperationCanceledException)
+            {
+                // The app is shutting down.
+            }
+            catch (Exception error)
+            {
+                SetStatus("Could not switch view", "Check the log for details.");
+                MessageBox.Show(this, error.Message, "ENVIS Dashboard", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _busy = false;
             }
         }
 
@@ -657,7 +927,9 @@ namespace EnvisDashboard
                     _tray.ShowBalloonTip(
                         4000,
                         "ENVIS Dashboard is still running",
-                        "The dashboard, API and planning watcher keep serving the LAN. Right-click the tray icon to reopen or exit.",
+                        _services.IsRemote
+                            ? "The app keeps the live dashboard or your offline copy ready. Right-click the tray icon to reopen or exit."
+                            : "The dashboard, API and planning watcher keep serving the LAN. Right-click the tray icon to reopen or exit.",
                         ToolTipIcon.Info);
                 }
 
@@ -671,6 +943,8 @@ namespace EnvisDashboard
         {
             _cancellation.Cancel();
             _tray.Visible = false;
+            _syncTimer.Stop();
+            _syncTimer.Dispose();
             _tray.Dispose();
             _webView.Dispose();
             _services.Dispose();

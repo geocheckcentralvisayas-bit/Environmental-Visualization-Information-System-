@@ -1,4 +1,4 @@
-# ENVIS Dashboard for Windows
+# ENVIS Dashboard for Windows (v1.4.0)
 
 A real desktop window for the dashboard, instead of a terminal plus a browser tab.
 
@@ -22,7 +22,12 @@ Outputs:
 | File | What it is |
 | --- | --- |
 | `desktop\dist\ENVIS Dashboard.exe` | Portable app, single file, self-contained (~64 MB) |
-| `desktop\dist\ENVIS Dashboard Setup.exe` | Installer with the app embedded (~127 MB) |
+| `desktop\dist\ENVIS Dashboard Setup.exe` | Installer with the app and the offline snapshot embedded (~167 MB) |
+
+The installer build runs `npm run build:offline`, which writes
+`desktop\offline-app` (dashboard + `public\data` + `offline-tiles`, about 143 MB)
+and packs it into `desktop\offline-app.zip`. Run `npm run data:tiles` first if
+that folder does not exist yet; without it the offline copy has no basemap.
 
 The first build downloads the `Microsoft.Web.WebView2` package and the .NET 8
 runtime pack, so it needs internet once. Later builds are offline.
@@ -50,9 +55,51 @@ Run `desktop\dist\ENVIS Dashboard Setup.exe` and pick:
    `http://192.168.1.20:5173`. The app then uses the host's data, API and
    offline map tiles, starts no local services, and needs no Node.js or project
    folder. Leave it blank to run everything on this PC.
+4. **LAN sync token (optional, client PCs)** — a shared secret set on the host
+   as `ENVIS_SYNC_TOKEN` (or `syncToken` in the host's `config.json`). Clients
+   must enter the same value or their offline copy cannot refresh; silent
+   installs accept it as `/SYNC:<token>`. `/sync/*` refuses requests without it.
+5. **Public dashboard URL (optional)** — the deployed site, for example
+   `https://<org>.github.io/envis-region-vii`. On a PC with internet but no
+   office host, the app opens this instead: the newest dashboard build and
+   data, with the full online sign-in. Leave it blank until that site exists.
+
+Every install also gets a **static offline copy** (`%LOCALAPPDATA%\ENVIS
+Dashboard\offline-app`, about 143 MB): the dashboard, every built dataset and
+the map tiles. A client on the office LAN shows the host's live data and
+refreshes that copy automatically (on launch and every 15 minutes). On any other
+network — at home, on a hotspot — it opens the copy with the last synced data.
+The copy is read-only: exports, GIS downloads and administration need the live
+host. Setup.exe is therefore about 167 MB.
+
+The copy also asks for a password, and only MIS can create or change it: sign in
+on the live dashboard as MIS and use **Administration → Offline access**. The
+hash is written to `offline-access.json` beside the project, so it travels with the
+installer and with each LAN sync. The sign-in screen offers **Offline password**
+(no username) and **Online sign in** (this PC's own dashboard, the office host,
+then the public site when this PC has internet); the tray menu can switch
+between them at any time. Without a configured password the offline copy stays
+locked. On a host PC there is no LAN sync, so the app refreshes the offline gate
+from the live dashboard every time it opens the offline copy.
+
+Both the finish screen and a `START HERE.txt` file in the install folder carry
+a short install-and-sign-in guide: host vs client address, the two sign-in tabs,
+where MIS sets the offline password, and the tray switch.
+
+The password hash is stored in `offline-access.json` at the project root (not in
+`public\data`), so the LAN host never serves or syncs it. The installer build
+copies it into the offline snapshot. `desktop\dist\SHA256SUMS.txt` lists the
+SHA-256 hashes of both exes; verify a download before running it. The window
+only navigates to the current dashboard, the installed copy or the configured
+public site, and external links/popups to other hosts are blocked.
 
 It then creates Start Menu and Desktop shortcuts (both optional) and registers
 the app in **Settings → Apps → Installed apps** with a working uninstaller.
+Setup requires accepting the End User License Agreement: tick **I accept the
+terms in the License Agreement** (or click **View license**) before Install is
+enabled. The agreement is copied to `LICENSE.txt` beside the app, and the
+uninstaller removes it with the rest of the install folder. A silent install
+(`/S`) is treated as acceptance.
 
 Silent install, for a script or a second PC:
 
@@ -68,16 +115,17 @@ Client PC (no project, no Node.js needed):
 "ENVIS Dashboard Setup.exe" /S /SERVER:http://192.168.1.20:5173
 ```
 
-The installer only installs the **window app**. The dashboard itself is this
-project (Node services, `node_modules`, worker secrets, planning workbook), so
-the host PC must already have the project somewhere; Setup records where. On a
-PC where the project lives elsewhere later, either reinstall or set the
-`ENVIS_PROJECT_ROOT` environment variable to that folder. `ENVIS_SERVER_URL`
-overrides client mode for one run.
+The installer only installs the **window app** plus the offline snapshot. The
+dashboard itself is this project (Node services, `node_modules`, worker secrets,
+planning workbook), so the host PC must already have the project somewhere; Setup
+records where. On a PC where the project lives elsewhere later, either reinstall
+or set the `ENVIS_PROJECT_ROOT` environment variable to that folder.
+`ENVIS_SERVER_URL` overrides client mode for one run.
 
-The map works without internet because the host serves the bundled
-`offline-tiles\` pack (streets + satellite, zoom 7-12, about 23 MB). Once per
-project copy, while online:
+The maps work without internet because the project bundles the Region VII
+`offline-tiles\` pack (streets + satellite, zoom 7-12, about 23 MB) and the
+installer's offline copy carries the same tiles. Once per project copy, while
+online:
 
 ```powershell
 npm run data:tiles

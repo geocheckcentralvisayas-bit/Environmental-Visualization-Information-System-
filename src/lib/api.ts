@@ -4,8 +4,12 @@
  * In development the Vite server proxies `/api` to the local Worker. For the
  * published site set `VITE_API_BASE` at build time to the Worker URL, e.g.
  * `https://envis-region-vii-api.<account>.workers.dev/api`.
+ *
+ * The desktop offline copy (`VITE_OFFLINE=1`) is a static build: its JSON comes
+ * from the same `data/` folder over the local WebView2 host, with no API.
  */
-const RAW_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api';
+export const OFFLINE = import.meta.env.VITE_OFFLINE === '1';
+const RAW_BASE = OFFLINE ? '' : ((import.meta.env.VITE_API_BASE as string | undefined) ?? '/api');
 export const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
 export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {

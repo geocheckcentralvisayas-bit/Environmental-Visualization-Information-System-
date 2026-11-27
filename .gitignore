@@ -31,6 +31,11 @@ reports/
 # workbook, so it must never be committed.
 screenshots/planning-evidence/
 
+# MIS-created offline access hash (per-deployment secret, not source).
+# Kept outside public/data so the LAN host never serves or syncs it.
+offline-access.json
+public/data/offline-access.json
+
 # Desktop app build output (the .exe is generated locally, not source)
 desktop/bin/
 desktop/obj/
@@ -39,6 +44,8 @@ desktop/dist/
 desktop/installer/bin/
 desktop/installer/obj/
 desktop/installer/publish/
+desktop/offline-app/
+desktop/offline-app.zip
 
 # Environment
 .env

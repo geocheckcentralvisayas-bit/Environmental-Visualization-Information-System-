@@ -89,6 +89,10 @@ namespace EnvisDashboard
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 AppName,
                 "start-services.cmd"));
+            DeleteDirectory(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                AppName,
+                "offline-app"));
 
             if (removeWebViewData)
             {
@@ -183,6 +187,11 @@ namespace EnvisDashboard
             {
                 var scriptPath = Path.Combine(Path.GetTempPath(), "envis-uninstall-" + Guid.NewGuid().ToString("N") + ".cmd");
                 var exeName = Path.GetFileName(executable);
+
+                // The paths are written into a .cmd file. Refuse shell
+                // metacharacters rather than trying to escape them.
+                ServiceHost.ValidateShellPath(installDirectory);
+                ServiceHost.ValidateShellPath(exeName);
 
                 var script = string.Join(
                     Environment.NewLine,

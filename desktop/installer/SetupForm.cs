@@ -42,8 +42,18 @@ namespace EnvisSetup
         private readonly TextBox _server = new TextBox();
         private readonly Label _serverHint = new Label();
 
+        private readonly Label _onlineLabel = new Label();
+        private readonly TextBox _online = new TextBox();
+        private readonly Label _onlineHint = new Label();
+
+        private readonly Label _syncLabel = new Label();
+        private readonly TextBox _sync = new TextBox();
+        private readonly Label _syncHint = new Label();
+
         private readonly CheckBox _startMenu = new CheckBox();
         private readonly CheckBox _desktop = new CheckBox();
+        private readonly CheckBox _accept = new CheckBox();
+        private readonly LinkLabel _viewLicense = new LinkLabel();
         private readonly Label _status = new Label();
         private readonly ProgressBar _progress = new ProgressBar();
         private readonly Button _install = new Button();
@@ -51,12 +61,15 @@ namespace EnvisSetup
 
         private readonly Label _doneTitle = new Label();
         private readonly Label _donePath = new Label();
+        private readonly Label _doneGuide = new Label();
         private readonly CheckBox _launch = new CheckBox();
         private readonly Button _close = new Button();
 
         private readonly string? _initialLocation;
         private readonly string? _initialProject;
         private readonly string? _initialServer;
+        private readonly string? _initialOnline;
+        private readonly string? _initialSync;
         private bool _busy;
         private string? _installedExecutable;
 
@@ -72,18 +85,20 @@ namespace EnvisSetup
         [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
 
-        public SetupForm(string? initialLocation = null, string? initialProject = null, string? initialServer = null)
+        public SetupForm(string? initialLocation = null, string? initialProject = null, string? initialServer = null, string? initialOnline = null, string? initialSync = null)
         {
             _initialLocation = initialLocation;
             _initialProject = initialProject;
             _initialServer = initialServer;
+            _initialOnline = initialOnline;
+            _initialSync = initialSync;
 
             Text = "ENVIS Dashboard Setup";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = true;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(820, 640);
+            ClientSize = new Size(820, 850);
             BackColor = Background;
             AutoScaleMode = AutoScaleMode.Dpi;
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
@@ -205,43 +220,78 @@ namespace EnvisSetup
             _serverHint.SetBounds(left, 386, 500, 34);
             Controls.Add(_serverHint);
 
+            BuildSection(_onlineLabel, "Public dashboard URL (optional, internet)", left, 428);
+            BuildTextBox(_online, left, 452, 500);
+            _onlineHint.Text = "Used when this PC has internet but cannot reach the office host. " +
+                               "Example: https://geocheckcentralvisayas-bit.github.io/envis-region-vii — " +
+                               "leave blank until that site is deployed.";
+            _onlineHint.ForeColor = TextFaint;
+            _onlineHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
+            _onlineHint.SetBounds(left, 484, 500, 34);
+            Controls.Add(_onlineHint);
+
+            BuildSection(_syncLabel, "LAN sync token (optional, client PCs)", left, 524);
+            BuildTextBox(_sync, left, 548, 500);
+            _syncHint.Text = "Shared secret set on the host as ENVIS_SYNC_TOKEN. Clients need the same value to refresh the offline copy; leave blank on the host itself.";
+            _syncHint.ForeColor = TextFaint;
+            _syncHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
+            _syncHint.SetBounds(left, 580, 500, 32);
+            Controls.Add(_syncHint);
+
             _startMenu.Text = "Add a Start Menu shortcut";
             _startMenu.ForeColor = TextPrimary;
             _startMenu.Checked = true;
-            _startMenu.SetBounds(left, 428, 300, 24);
+            _startMenu.SetBounds(left, 618, 300, 24);
             Controls.Add(_startMenu);
 
             _desktop.Text = "Add a Desktop shortcut";
             _desktop.ForeColor = TextPrimary;
             _desktop.Checked = true;
-            _desktop.SetBounds(left, 456, 300, 24);
+            _desktop.SetBounds(left, 646, 300, 24);
             Controls.Add(_desktop);
+
+            _accept.Text = "I accept the terms in the License Agreement";
+            _accept.ForeColor = TextPrimary;
+            _accept.SetBounds(left, 676, 360, 24);
+            _accept.CheckedChanged += delegate { _install.Enabled = _accept.Checked && !_busy; };
+            Controls.Add(_accept);
+
+            _viewLicense.Text = "View license";
+            _viewLicense.ForeColor = TextMuted;
+            _viewLicense.LinkColor = Emerald;
+            _viewLicense.ActiveLinkColor = Color.FromArgb(167, 243, 208);
+            _viewLicense.VisitedLinkColor = Emerald;
+            _viewLicense.LinkBehavior = LinkBehavior.HoverUnderline;
+            _viewLicense.SetBounds(left + 366, 679, 110, 20);
+            _viewLicense.Click += delegate { ShowLicense(); };
+            Controls.Add(_viewLicense);
 
             _status.Text = "Ready to install.";
             _status.ForeColor = TextMuted;
             _status.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-            _status.SetBounds(left, 490, 500, 36);
+            _status.SetBounds(left, 706, 500, 36);
             Controls.Add(_status);
 
-            _progress.SetBounds(left, 532, 500, 6);
+            _progress.SetBounds(left, 748, 500, 6);
             _progress.Style = ProgressBarStyle.Continuous;
             _progress.Minimum = 0;
             _progress.Maximum = 100;
             Controls.Add(_progress);
 
             _install.Text = "Install";
-            _install.SetBounds(left + 318, 562, 182, 40);
+            _install.SetBounds(left + 318, 774, 182, 40);
             _install.FlatStyle = FlatStyle.Flat;
             _install.FlatAppearance.BorderSize = 0;
             _install.BackColor = Emerald;
             _install.ForeColor = Color.FromArgb(3, 20, 15);
             _install.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
             _install.Cursor = Cursors.Hand;
+            _install.Enabled = false;
             _install.Click += async delegate { await InstallAsync(); };
             Controls.Add(_install);
 
             _cancel.Text = "Cancel";
-            _cancel.SetBounds(left + 222, 562, 88, 40);
+            _cancel.SetBounds(left + 222, 774, 88, 40);
             _cancel.FlatStyle = FlatStyle.Flat;
             _cancel.FlatAppearance.BorderColor = BorderColor;
             _cancel.BackColor = FieldBackground;
@@ -267,15 +317,21 @@ namespace EnvisSetup
             _donePath.Visible = false;
             Controls.Add(_donePath);
 
+            _doneGuide.ForeColor = TextMuted;
+            _doneGuide.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            _doneGuide.SetBounds(left, 286, 500, 240);
+            _doneGuide.Visible = false;
+            Controls.Add(_doneGuide);
+
             _launch.Text = "Open ENVIS Dashboard now";
             _launch.ForeColor = TextPrimary;
             _launch.Checked = true;
-            _launch.SetBounds(left, 300, 400, 24);
+            _launch.SetBounds(left, 536, 400, 24);
             _launch.Visible = false;
             Controls.Add(_launch);
 
             _close.Text = "Close";
-            _close.SetBounds(left + 336, 400, 164, 40);
+            _close.SetBounds(left + 336, 646, 164, 40);
             _close.FlatStyle = FlatStyle.Flat;
             _close.FlatAppearance.BorderSize = 0;
             _close.BackColor = Emerald;
@@ -327,6 +383,8 @@ namespace EnvisSetup
             var project = Installer.ResolveProjectRoot(_initialProject);
             _project.Text = project ?? string.Empty;
             _server.Text = _initialServer ?? string.Empty;
+            _online.Text = _initialOnline ?? string.Empty;
+            _sync.Text = _initialSync ?? string.Empty;
             ValidateProject();
 
             if (Installer.AlreadyInstalled)
@@ -334,6 +392,12 @@ namespace EnvisSetup
                 _install.Text = "Update";
                 _status.Text = "An earlier copy was found and will be replaced. Your dashboard data is not touched.";
             }
+        }
+
+        private static bool IsWebAddress(string value)
+        {
+            return Uri.TryCreate(value, UriKind.Absolute, out var parsed) &&
+                   (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps);
         }
 
         private void ValidateProject()
@@ -385,6 +449,8 @@ namespace EnvisSetup
             var location = _location.Text.Trim();
             var project = _project.Text.Trim();
             var server = _server.Text.Trim();
+            var online = _online.Text.Trim();
+            var sync = _sync.Text.Trim();
 
             if (location.Length == 0)
             {
@@ -393,22 +459,31 @@ namespace EnvisSetup
                 return;
             }
 
-            if (server.Length > 0)
+            if (server.Length > 0 && !IsWebAddress(server))
             {
-                if (!Uri.TryCreate(server, UriKind.Absolute, out var parsed) ||
-                    (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
-                {
-                    MessageBox.Show(
-                        this,
-                        "The shared server address must look like:\n\nhttp://192.168.1.20:5173",
-                        Text,
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                    _server.Focus();
-                    return;
-                }
+                MessageBox.Show(
+                    this,
+                    "The shared server address must look like:\n\nhttp://192.168.1.20:5173",
+                    Text,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                _server.Focus();
+                return;
             }
-            else if (!Installer.IsProjectRoot(project))
+
+            if (online.Length > 0 && !IsWebAddress(online))
+            {
+                MessageBox.Show(
+                    this,
+                    "The public dashboard URL must look like:\n\nhttps://example.github.io/envis-region-vii",
+                    Text,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                _online.Focus();
+                return;
+            }
+
+            if (server.Length == 0 && online.Length == 0 && !Installer.IsProjectRoot(project))
             {
                 var proceed = MessageBox.Show(
                     this,
@@ -431,8 +506,12 @@ namespace EnvisSetup
             _browseLocation.Enabled = false;
             _browseProject.Enabled = false;
             _server.Enabled = false;
+            _online.Enabled = false;
+            _sync.Enabled = false;
             _startMenu.Enabled = false;
             _desktop.Enabled = false;
+            _accept.Enabled = false;
+            _viewLicense.Enabled = false;
             _progress.Value = 0;
 
             IProgress<InstallProgress> reporter = new Progress<InstallProgress>(update =>
@@ -446,7 +525,7 @@ namespace EnvisSetup
             {
                 var startMenu = _startMenu.Checked;
                 var desktop = _desktop.Checked;
-                await Task.Run(() => Installer.Install(location, project, server, startMenu, desktop, reporter.Report));
+                await Task.Run(() => Installer.Install(location, project, server, online, sync, startMenu, desktop, reporter.Report));
 
                 _installedExecutable = Installer.InstalledExecutable(Path.GetFullPath(location));
                 ShowDone(Path.GetFullPath(location));
@@ -454,13 +533,17 @@ namespace EnvisSetup
             catch (Exception error)
             {
                 _busy = false;
-                _install.Enabled = true;
+                _accept.Enabled = true;
+                _viewLicense.Enabled = true;
+                _install.Enabled = _accept.Checked;
                 _cancel.Enabled = true;
                 _location.Enabled = true;
                 _project.Enabled = true;
                 _browseLocation.Enabled = true;
                 _browseProject.Enabled = true;
                 _server.Enabled = true;
+                _online.Enabled = true;
+                _sync.Enabled = true;
                 _startMenu.Enabled = true;
                 _desktop.Enabled = true;
                 _progress.Value = 0;
@@ -472,6 +555,49 @@ namespace EnvisSetup
                     "ENVIS Dashboard Setup",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+        }
+
+        private void ShowLicense()
+        {
+            using (var dialog = new Form())
+            {
+                dialog.Text = "ENVIS Dashboard License Agreement";
+                dialog.ClientSize = new Size(720, 560);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.MinimizeBox = false;
+                dialog.MaximizeBox = false;
+                dialog.BackColor = Background;
+                dialog.ForeColor = TextPrimary;
+                dialog.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+
+                var body = new TextBox();
+                body.Multiline = true;
+                body.ReadOnly = true;
+                body.ScrollBars = ScrollBars.Vertical;
+                body.WordWrap = true;
+                body.BorderStyle = BorderStyle.None;
+                body.BackColor = FieldBackground;
+                body.ForeColor = TextPrimary;
+                body.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
+                body.Text = Installer.LicenseText.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+                body.SetBounds(20, 20, 680, 480);
+                dialog.Controls.Add(body);
+
+                var close = new Button();
+                close.Text = "Close";
+                close.DialogResult = DialogResult.OK;
+                close.FlatStyle = FlatStyle.Flat;
+                close.FlatAppearance.BorderSize = 0;
+                close.BackColor = Emerald;
+                close.ForeColor = Color.FromArgb(3, 20, 15);
+                close.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
+                close.SetBounds(578, 512, 122, 34);
+                dialog.Controls.Add(close);
+                dialog.AcceptButton = close;
+                dialog.CancelButton = close;
+
+                dialog.ShowDialog(this);
             }
         }
 
@@ -492,8 +618,16 @@ namespace EnvisSetup
             _serverLabel.Visible = false;
             _server.Visible = false;
             _serverHint.Visible = false;
+            _onlineLabel.Visible = false;
+            _online.Visible = false;
+            _onlineHint.Visible = false;
+            _syncLabel.Visible = false;
+            _sync.Visible = false;
+            _syncHint.Visible = false;
             _startMenu.Visible = false;
             _desktop.Visible = false;
+            _accept.Visible = false;
+            _viewLicense.Visible = false;
             _status.Visible = false;
             _progress.Visible = false;
             _install.Visible = false;
@@ -503,6 +637,19 @@ namespace EnvisSetup
             _donePath.Text = "Installed to:\n" + installDirectory +
                              "\n\nOpen it from the Start Menu or the notification area after it starts.";
             _donePath.Visible = true;
+            _doneGuide.Text =
+                "QUICK START - install and sign in\n\n" +
+                "1. Host PC: leave the server field blank. Other PCs: enter the host address\n" +
+                "   (for example http://192.168.1.31:5173).\n" +
+                "2. Open the app and choose a sign-in tab:\n" +
+                "     Online sign in  - your ENVIS username and password.\n" +
+                "     Offline password - one password only, no username; works offline.\n" +
+                "3. Only MIS can set that password: sign in to the live dashboard as MIS,\n" +
+                "   then Administration -> Offline access -> New offline password.\n" +
+                "4. The tray icon switches between live and offline at any time.\n" +
+                "5. Client PCs need the host's LAN sync token to refresh the offline copy.\n\n" +
+                "A full guide is saved as START HERE.txt in the install folder.";
+            _doneGuide.Visible = true;
             _launch.Visible = true;
             _close.Visible = true;
             AcceptButton = _close;

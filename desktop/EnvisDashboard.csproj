@@ -25,9 +25,9 @@
          WinForms target only uses the WinForms build, so the conflict is inert. -->
     <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
 
-    <Version>1.3.10</Version>
-    <FileVersion>1.3.10.0</FileVersion>
-    <AssemblyVersion>1.3.10.0</AssemblyVersion>
+    <Version>1.4.0</Version>
+    <FileVersion>1.4.0.0</FileVersion>
+    <AssemblyVersion>1.4.0.0</AssemblyVersion>
     <Product>ENVIS Dashboard</Product>
     <Description>ENVIS Region VII dashboard as a Windows desktop application.</Description>
     <Company>Environmental Management Bureau Region VII</Company>

@@ -1,5 +1,6 @@
 # ENVIS Dashboard — Environmental Permits Monitoring System
 
+[![Version](https://img.shields.io/badge/version-1.4.0-emerald)](#)
 [![Build](https://img.shields.io/badge/build-passing-2ea44f)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)](#)
 [![React](https://img.shields.io/badge/React-19-61dafb)](#)
@@ -145,54 +146,30 @@ flowchart LR
 
 ### Sign in
 
+The desktop app's sign-in screen has two tabs. **Offline password** needs only
+the MIS-issued offline password (no username) and works with no internet;
+**Online sign in** uses your ENVIS account and prefers the office host.
+
+![Offline and online sign-in tabs](docs/screenshots/offline-login.png)
+
+The live dashboard sign-in screen used by the browser is unchanged:
+
 ![Sign-in screen](docs/screenshots/login.png)
 
 ### Installer
 
-ENVIS Dashboard Windows desktop app installer screenshots:
-
-- **Setup window** — installation location selection, progress bar, component options.
-- **Complete** — installation finished, shortcut creation (Desktop/Start Menu), Finish button.
-
-These images are stored in `screenshots/installer-setup-45.png` and
-`screenshots/installer-complete.png` once generated. They are also attached
-as release assets in the `v1.3.10` GitHub release.
+The Windows installer shows a **Quick start** panel when installation finishes:
+install location, the host address field, both sign-in tabs, how MIS sets the
+offline password, and the tray switch. It also writes a full guide named
+`START HERE.txt` into the install folder. The setup window itself has fields
+for the install folder, optional host address, optional public dashboard URL,
+Start Menu / Desktop shortcuts and the license agreement.
 
 ### Spatial map
 
 One marker per establishment; rings show which registers the facility holds.
 
 ![Establishment and permit map](docs/screenshots/spatial-map.png)
-
-### Planning evidence
-
-Screenshots of the EMB 7 Accomplishment workbook audit, used to verify the
-planning data pipeline:
-
-- ![Audit counts](screenshots/planning-evidence/01-audit-counts.png)
-- ![Main sheet top](screenshots/planning-evidence/02-main-sheet-top.png)
-- ![Main sheet bottom](screenshots/planning-evidence/03-main-sheet-bottom.png)
-- ![Dashboard KPI](screenshots/planning-evidence/04-dashboard-kpi.png)
-
-These are evidence screenshots from the planning workbook, not dashboard UI.
-
-### Spatial map
-
-One marker per establishment; rings show which registers the facility holds.
-
-![Establishment and permit map](docs/screenshots/spatial-map.png)
-
-### Planning evidence
-
-Screenshots of the EMB 7 Accomplishment workbook audit, used to verify the
-planning data pipeline:
-
-- ![Audit counts](screenshots/planning-evidence/01-audit-counts.png)
-- ![Main sheet top](screenshots/planning-evidence/02-main-sheet-top.png)
-- ![Main sheet bottom](screenshots/planning-evidence/03-main-sheet-bottom.png)
-- ![Dashboard KPI](screenshots/planning-evidence/04-dashboard-kpi.png)
-
-These are evidence screenshots from the planning workbook, not dashboard UI.
 
 ### DP · PTO intercross
 
@@ -302,6 +279,25 @@ so every rebuilt dataset or workbook change is visible to everyone at once,
 without internet and without copying files. The host address is shown in the
 app's tray → Status.
 
+The installer also carries a **static offline copy** of the dashboard: the app,
+every built dataset and the Region VII tiles. Whenever a client is on the
+office LAN it uses the host's live data and refreshes that copy automatically
+(on launch and every 15 minutes). Anywhere else — at home or on another
+network — it opens the offline copy with the last synced data and maps. The
+offline copy is read-only (viewer role): exports and GIS downloads need the
+live host.
+
+The offline copy asks for one password before it opens, and only an MIS user can
+create or change it: sign in on the live dashboard as MIS and use
+**Administration → Offline access**. The hashed value is stored in
+`offline-access.json` beside the project, so it travels with the installer snapshot and
+with every LAN sync. Users choose **Offline password** (no username, MIS-issued)
+or **Online sign in** at the sign-in screen. **Online sign in** returns to this
+PC's own dashboard when it is the host, otherwise it tries the office host first,
+then the optional public dashboard URL set during installation, so a PC with
+internet can open the newest dashboard build; with none reachable, the offline
+copy stays open.
+
 ### Windows desktop app
 
 `desktop\` turns the dashboard into a real window (WinForms + WebView2) that
@@ -320,6 +316,52 @@ powershell -NoProfile -ExecutionPolicy Bypass -File desktop\build.ps1
 Both need Node.js 20+, the project's `node_modules`, and the WebView2 runtime
 (included with Windows 11/Edge). See [desktop/README.md](desktop/README.md) for
 the tray menu, silent install flags, logs and uninstall steps.
+
+#### Install and sign in (v1.4.0)
+
+1. Run `ENVIS Dashboard Setup.exe`. Accept the license, pick a folder, click Install.
+   The finish screen shows a short guide and creates `START HERE.txt` in that folder.
+2. On the **host** PC leave *Shared dashboard server* blank. On other PCs enter
+   the host's LAN address, for example `http://192.168.1.31:5173` (shown in the
+   host's tray → Status). *Public dashboard URL* is optional and only applies
+   once that site is deployed.
+3. Open the app. **Online sign in** takes your ENVIS username and password and
+   uses the office host first, then the optional public site. **Offline password**
+   takes only the MIS-issued offline password — no username — and works offline.
+4. Only MIS can set that offline password: sign in to the live dashboard as MIS,
+   open **Administration → Offline access**, and enter **New offline password**.
+   It is a separate password, not any account password; its hash is saved to
+   `offline-access.json` and reaches clients on the next LAN sync.
+   On the host PC the app also refreshes its own offline gate whenever it opens
+   the offline copy.
+5. Use the tray icon to switch between the live dashboard and the offline copy
+   at any time. On the office LAN the live data and offline copy update
+   automatically; elsewhere the last synced copy remains available.
+
+#### Security notes (v1.4.0 hardening)
+
+- The LAN host no longer serves `public/data/**` as static files: `/data/*`
+  returns 404. Data is available only through the authenticated Worker API.
+- `/sync/*` now requires a shared bearer token. Set a strong secret on the host
+  as `ENVIS_SYNC_TOKEN` (or `syncToken` in `%LOCALAPPDATA%\ENVIS Dashboard\config.json`)
+  and give client PCs the same value in Setup's **LAN sync token** field or
+  `/SYNC:<token>`. Without a matching token, sync is refused (403).
+- The offline password hash now lives in `offline-access.json` at the project
+  root, outside the served/synced data tree. The offline build copies it into
+  the snapshot explicitly.
+- LAN responses carry a CSP and security headers; GitHub Pages gets the same
+  headers from `public/_headers`.
+- The app window only navigates to the current dashboard, the installed copy
+  or the configured public site, and its file mapping uses `DenyCors`.
+- Launcher and uninstall scripts reject shell metacharacters in configured paths.
+- `desktop\dist\SHA256SUMS.txt` publishes hashes of both exes. **Code signing is
+  still required** for real provenance; it needs a code-signing certificate.
+- Residual risks: the offline snapshot is still plaintext, so the password gate
+  is a UI lock, not encryption — control who receives `Setup.exe` and use
+  BitLocker on client PCs. GIS layer files remain readable by every signed-in
+  role because the map needs them; the GIS-only rule governs the audited
+  download through `/api/verify`. `xlsx` stays at 0.18.x because npm has no
+  fixed release; the data pipeline parses only trusted local workbooks.
 
 ### Planning Accomplishments live source
 

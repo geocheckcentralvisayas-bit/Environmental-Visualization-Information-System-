@@ -1,0 +1,133 @@
+ENVIS DASHBOARD - END USER LICENSE AGREEMENT
+
+Environmental Management Bureau, Region VII (DENR-EMB Region VII)
+Central Visayas, Philippines
+
+Version 1.0
+
+PLEASE READ THIS AGREEMENT CAREFULLY. BY CLICKING "I ACCEPT", INSTALLING,
+COPYING OR USING THE ENVIS DASHBOARD SOFTWARE, YOU CONFIRM THAT YOU HAVE READ,
+UNDERSTOOD AND AGREE TO BE BOUND BY THESE TERMS. IF YOU DO NOT AGREE, CLICK
+"DECLINE" AND DO NOT INSTALL OR USE THE SOFTWARE.
+
+
+1. DEFINITIONS
+
+"Software" means the ENVIS Dashboard desktop application, its installer, its
+offline data snapshot, its map tile pack, its documentation and any update
+provided by DENR-EMB Region VII.
+
+"Organization" means DENR-EMB Region VII and the offices, divisions and
+personnel authorized by it to use the Software.
+
+"Data" means the environmental permits, establishments, monitoring, planning,
+legal and spatial datasets displayed by the Software.
+
+
+2. LICENSE GRANT
+
+Subject to this Agreement, DENR-EMB Region VII grants you a limited,
+non-exclusive, non-transferable, revocable license to install and use the
+Software on computers owned or controlled by the Organization, solely for the
+Organization's official environmental monitoring, planning, regulatory and
+reporting activities.
+
+This license is granted to you as an individual user and to the Organization.
+It does not transfer ownership of the Software or of any Data.
+
+
+3. RESTRICTIONS
+
+You shall not:
+
+(a) sell, rent, lease, sublicense, distribute or otherwise make the Software
+    available to any person or entity outside the Organization;
+
+(b) copy, publish or disclose the Software's Data, including the offline
+    snapshot, to any unauthorized person, or upload it to a public service;
+
+(c) reverse engineer, decompile or disassemble the Software except to the
+    extent permitted by applicable law;
+
+(d) remove or alter any copyright, attribution, license or proprietary notice;
+
+(e) use the Software in a manner that violates Philippine law, including the
+    Data Privacy Act of 2012 (Republic Act No. 10173) and its implementing
+    rules, or the Organization's information security policies.
+
+
+4. DATA AND PRIVACY
+
+The Software displays Data derived from official records and from source
+workbooks provided to DENR-EMB Region VII. You are responsible for handling
+that Data in accordance with the Data Privacy Act, applicable records
+management rules and the Organization's access controls.
+
+The offline copy stores a snapshot of the Data on the computer where the
+Software is installed. Protect that computer and remove the offline copy
+through the uninstaller when it is no longer authorized.
+
+Map imagery and map data are provided by Esri and OpenStreetMap contributors
+and remain subject to their respective terms of use and attribution
+requirements, which are displayed on the map.
+
+
+5. UPDATES AND SUPPORT
+
+Updates are provided at the discretion of DENR-EMB Region VII and may change,
+add or remove features. Support is provided through the Organization's
+designated ENVIS administrators. This Agreement applies to every update unless
+a separate agreement accompanies it.
+
+
+6. NO WARRANTY
+
+THE SOFTWARE AND DATA ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY
+OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY, COMPLETENESS OR
+NON-INFRINGEMENT. The Software is a monitoring aid. It does not replace
+official records, permits, clearances or legal determinations. Verify critical
+information against the authoritative source before acting on it.
+
+
+7. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, DENR-EMB REGION VII SHALL NOT BE LIABLE
+FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, OR
+FOR ANY LOSS OF DATA, PROFITS OR BUSINESS, ARISING OUT OF OR RELATED TO THE USE
+OF OR INABILITY TO USE THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES. NOTHING IN THIS AGREEMENT LIMITS LIABILITY THAT CANNOT BE LIMITED
+UNDER APPLICABLE LAW.
+
+
+8. TERM AND TERMINATION
+
+This Agreement is effective until terminated. It terminates automatically if
+you breach any of its terms, or when the Organization withdraws authorization
+to use the Software. On termination you must stop using the Software and
+remove it, including its offline copy, using the uninstaller or by deleting the
+installation.
+
+
+9. THIRD-PARTY COMPONENTS
+
+The Software includes open-source components and third-party map services. Those
+components remain governed by their own licenses and terms, which prevail over
+this Agreement where they conflict.
+
+
+10. GOVERNING LAW
+
+This Agreement is governed by the laws of the Republic of the Philippines. Any
+dispute shall be subject to the exclusive jurisdiction of the proper courts of
+Cebu City, Philippines.
+
+
+11. ACCEPTANCE
+
+By selecting "I accept the terms in the License Agreement" and completing the
+installation, you acknowledge that you are authorized to accept these terms on
+behalf of yourself and, where applicable, the Organization.
+
+For questions about this Agreement, contact the ENVIS administrator at
+DENR-EMB Region VII.

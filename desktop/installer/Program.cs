@@ -22,7 +22,9 @@ namespace EnvisSetup
                     "  ... /S                              silent install with defaults\n" +
                     "  ... /DIR:\"C:\\path\"                   install folder\n" +
                     "  ... /PROJECTROOT:\"C:\\path\"           dashboard project folder\n" +
-                    "  ... /SERVER:http://192.168.1.20:5173  connect to the host PC instead\n\n" +
+                    "  ... /SERVER:http://192.168.1.20:5173  connect to the host PC instead\n" +
+                    "  ... /ONLINE:https://site.example/     public dashboard used when online\n" +
+                    "  ... /SYNC:<shared-token>          LAN sync secret for client PCs\n\n" +
                     "Silent install writes a log to %TEMP%\\envis-setup.log on failure.",
                     "ENVIS Dashboard Setup",
                     MessageBoxButtons.OK,
@@ -36,7 +38,9 @@ namespace EnvisSetup
                 var location = GetOption(args, "/DIR:") ?? Installer.DefaultInstallDirectory;
                 var project = GetOption(args, "/PROJECTROOT:");
                 var server = GetOption(args, "/SERVER:");
-                Environment.ExitCode = Installer.RunSilent(location, project, server, true, true);
+                var online = GetOption(args, "/ONLINE:");
+                var sync = GetOption(args, "/SYNC:");
+                Environment.ExitCode = Installer.RunSilent(location, project, server, online, sync, true, true);
                 return;
             }
 
@@ -44,8 +48,10 @@ namespace EnvisSetup
             var initialLocation = GetOption(args, "/DIR:");
             var initialProject = GetOption(args, "/PROJECTROOT:");
             var initialServer = GetOption(args, "/SERVER:");
+            var initialOnline = GetOption(args, "/ONLINE:");
+            var initialSync = GetOption(args, "/SYNC:");
 
-            Application.Run(new SetupForm(initialLocation, initialProject, initialServer));
+            Application.Run(new SetupForm(initialLocation, initialProject, initialServer, initialOnline, initialSync));
         }
 
         private static bool HasFlag(string[] args, string value)

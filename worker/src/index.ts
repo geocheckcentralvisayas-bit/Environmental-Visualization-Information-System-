@@ -17,7 +17,7 @@ import {
   sessionCookie,
   verifyPassword,
 } from './auth';
-import { fail, isOriginAllowed, json, readJson, withCors } from './http';
+import { clientIp, fail, isOriginAllowed, json, readJson, withCors } from './http';
 import type { AccountRow, AuthContext, Env, Role } from './types';
 
 const ROLES: Role[] = ['extraction', 'rd', 'emed', 'cpd', 'mis', 'viewer', 'gis'];
@@ -90,7 +90,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return fail(400, 'Username and password are required.');
   }
 
-  const retryAfter = await assertLoginAllowed(env, username);
+  const retryAfter = await assertLoginAllowed(env, username, clientIp(request));
   if (retryAfter > 0) {
     return json(
       { error: 'Too many failed attempts. Try again later.' },
@@ -110,7 +110,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     await burnPasswordCheck(body.password);
   }
   if (!account || !ok) {
-    await registerLoginFailure(env, username);
+    await registerLoginFailure(env, username, clientIp(request));
     await logActivity(
       env,
       'login-failed',
@@ -121,7 +121,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return fail(401, 'Invalid username or password.');
   }
 
-  await clearLoginFailures(env, username);
+  await clearLoginFailures(env, username, clientIp(request));
   await pruneLoginAttempts(env);
 
   const { token, session } = await createSession(env, account);
@@ -155,7 +155,7 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
   }
 
   const purpose = body.purpose === 'geojson' ? 'geojson' : 'export';
-  const retryAfter = await assertLoginAllowed(env, username);
+  const retryAfter = await assertLoginAllowed(env, username, clientIp(request));
   if (retryAfter > 0) {
     return json({ error: 'Too many failed attempts. Try again later.' }, { status: 429, headers: { 'Retry-After': String(retryAfter) } });
   }
@@ -171,11 +171,11 @@ async function handleVerify(request: Request, env: Env, auth: AuthContext): Prom
     await burnPasswordCheck(body.password);
   }
   if (!account || !ok) {
-    await registerLoginFailure(env, username);
+    await registerLoginFailure(env, username, clientIp(request));
     await logActivity(env, 'login-failed', `Failed ${purpose} re-authentication`, account?.username ?? 'unknown', account?.role ?? 'unknown');
     return fail(401, 'Invalid username or password.');
   }
-  await clearLoginFailures(env, username);
+  await clearLoginFailures(env, username, clientIp(request));
 
   if (purpose === 'geojson' && account.role !== 'gis') {
     return fail(403, 'This account cannot download GeoJSON layers.');
@@ -241,6 +241,9 @@ async function handleData(request: Request, env: Env, auth: AuthContext, path: s
       return fail(403, 'EMED monitoring data requires an EMED, RD or MIS account.');
     }
   }
+  // Layer files are also read by the map for every signed-in role, so the
+  // GIS-only rule is enforced by /api/verify for the audited download action,
+  // not by blocking the same files from the map.
   const object = await env.DATA.get(`data/${path}`);
   if (!object) return fail(404, 'Not found.');
 
@@ -396,12 +399,12 @@ async function handleAqmsLive(): Promise<Response> {
           ...aqmsLiveCache.payload,
           stale: true,
           cachedAt: new Date(aqmsLiveCache.at).toISOString(),
-          warning: error instanceof Error ? error.message : 'Live source unavailable',
+          warning: 'Live source unavailable; showing the last cached readings.',
         },
         { headers },
       );
     }
-    return fail(502, error instanceof Error ? error.message : 'Could not reach the AQMS sheet.');
+    return fail(502, 'Could not reach the AQMS sheet. Try again later.');
   }
 }
 

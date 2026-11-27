@@ -164,12 +164,35 @@ the desktop installer and put that address in **Shared dashboard server
 (optional)**, or silently:
 
 ```powershell
-"ENVIS Dashboard Setup.exe" /S /SERVER:http://192.168.x.x:5173
+"ENVIS Dashboard Setup.exe" /S /SERVER:http://192.168.x.x:5173 /SYNC:<shared-token>
 ```
+
+Set the same secret on the host (environment variable `ENVIS_SYNC_TOKEN`, or
+`syncToken` in the host's config) before starting the app: `/sync/*` is refused
+without it and the LAN host no longer serves `public/data/**` directly.
 
 Client mode needs no Node.js or project folder: it reads the host's data, login
 and map tiles over the office LAN, so new data appears as soon as the host
 rebuilds it.
+
+The installer also contains a static offline copy (app + every dataset + the
+map tiles). On the LAN the client uses the host's live data and refreshes that
+copy on launch and every 15 minutes; away from the office it opens the copy
+automatically with the last synced data. The offline copy is read-only — sign
+in on the office LAN for exports, GIS downloads and administration. Rebuild the
+installer with `desktop\build.ps1` (it runs `npm run build:offline`) after a
+large data rebuild so new PCs start with a fresh snapshot.
+
+The offline copy is protected by a single password that only an MIS user can
+create or change: sign in on the live dashboard as MIS, then open
+**Administration → Offline access**. Do this before building the installer so
+new PCs ship with it; existing PCs receive the new hash on their next LAN sync.
+Users see two tabs at the sign-in screen: **Offline password** (that one
+password only, no username; works offline) and **Online sign in** (ENVIS account;
+office host first, then the optional public URL). The same switch is in the
+tray menu. On the host PC the app refreshes the offline gate each time it opens
+the copy, so a password changed after the installer was built still works.
+Setup writes `START HERE.txt` in the install folder with these steps.
 
 ### Auto-start after you sign in
 

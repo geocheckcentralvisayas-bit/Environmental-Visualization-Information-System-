@@ -23,6 +23,14 @@ namespace EnvisDashboard
         private Process? _supervisor;
         private bool _disposed;
         private readonly string? _remoteServer;
+        private readonly string? _onlineUrl;
+        private readonly string? _syncToken;
+        private readonly string? _offlineAppDirectory;
+
+        public const string OfflineHost = "https://envis.local/index.html";
+
+        /// <summary>The dashboard this app starts itself in local host mode.</summary>
+        public const string LocalHost = "http://127.0.0.1:5173";
 
         private static readonly HttpClient Http = new HttpClient
         {
@@ -35,11 +43,138 @@ namespace EnvisDashboard
         /// Local dashboard URL, or the shared host's URL when this app was
         /// installed in client mode (config.json "serverUrl").
         /// </summary>
-        public string BaseUrl { get; }
+        public string BaseUrl { get; private set; }
+
+        /// <summary>
+        /// True when the shared host was unreachable and the app is showing the
+        /// last synced offline copy stored under %LOCALAPPDATA%.
+        /// </summary>
+        public bool IsOfflineCopy { get; private set; }
+
+        /// <summary>True when the app is showing the public dashboard over the internet.</summary>
+        public bool IsOnlineLive { get; private set; }
+
+        /// <summary>The configured public dashboard URL, or null.</summary>
+        public string? OnlineUrl
+        {
+            get { return _onlineUrl; }
+        }
+
+        /// <summary>True when Setup installed the static snapshot this client can fall back to.</summary>
+        public bool CanUseOfflineCopy
+        {
+            get { return _offlineAppDirectory != null; }
+        }
+
+        /// <summary>Shows the installed snapshot without waiting for the host.</summary>
+        public void UseOfflineCopy()
+        {
+            if (_offlineAppDirectory == null) return;
+            RefreshLocalGate();
+            IsOfflineCopy = true;
+            IsOnlineLive = false;
+            BaseUrl = OfflineHost;
+        }
+
+        /// <summary>
+        /// On the host PC there is no LAN sync, so the installed copy would keep
+        /// the password MIS set before the snapshot was built. Refresh it from
+        /// the live dashboard's file every time we open the copy.
+        /// </summary>
+        private void RefreshLocalGate()
+        {
+            if (IsRemote || ProjectRoot == null) return;
+            var source = Path.Combine(ProjectRoot, "offline-access.json");
+            var target = Path.Combine(_offlineAppDirectory!, "data", "offline-access.json");
+            try
+            {
+                if (!File.Exists(source)) return;
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(source, target, true);
+                AppendLog("[app] offline gate refreshed from the live dashboard");
+            }
+            catch (Exception error)
+            {
+                AppendLog("[app] could not refresh the offline gate: " + error.Message);
+            }
+        }
+
+        /// <summary>Returns to the LAN host, or the public site when no host is configured.</summary>
+        public void UseLiveHost()
+        {
+            IsOfflineCopy = false;
+            IsOnlineLive = _remoteServer == null && _onlineUrl != null;
+            BaseUrl = _remoteServer ?? _onlineUrl ?? LocalHost;
+        }
+
+        /// <summary>Shows the public dashboard (internet mode).</summary>
+        public void UseOnlineSite()
+        {
+            if (_onlineUrl == null) return;
+            IsOfflineCopy = false;
+            IsOnlineLive = true;
+            BaseUrl = _onlineUrl;
+        }
+
+        /// <summary>
+        /// Office host first, then the public site. In local host mode it returns
+        /// to this PC's own dashboard, starting the services again if they were
+        /// stopped. Returns false when nothing answers; the caller decides
+        /// whether to fall back to the offline copy.
+        /// </summary>
+        public async Task<bool> TryUseLiveHostAsync(CancellationToken cancellationToken)
+        {
+            if (!IsRemote)
+            {
+                BaseUrl = LocalHost;
+                IsOfflineCopy = false;
+                IsOnlineLive = false;
+
+                if (await IsSiteLiveAsync(cancellationToken).ConfigureAwait(false)) return true;
+
+                try
+                {
+                    StartSupervisor();
+                    AppendLog("[app] local dashboard not running; restarting the services");
+                    await WaitUntilLiveAsync(TimeSpan.FromSeconds(90), null, cancellationToken).ConfigureAwait(false);
+                    return true;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception error)
+                {
+                    AppendLog("[app] local dashboard did not start: " + error.Message);
+                    return false;
+                }
+            }
+
+            if (await ProbeAsync(_remoteServer, "/api/health", cancellationToken).ConfigureAwait(false))
+            {
+                UseLiveHost();
+                AppendLog("[app] office host reachable: " + _remoteServer);
+                return true;
+            }
+
+            if (await ProbeAsync(_onlineUrl, string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                UseOnlineSite();
+                AppendLog("[app] internet dashboard reachable: " + _onlineUrl);
+                return true;
+            }
+
+            return false;
+        }
+
+        public string? OfflineAppDirectory
+        {
+            get { return _offlineAppDirectory; }
+        }
 
         public bool IsRemote
         {
-            get { return _remoteServer != null; }
+            get { return _remoteServer != null || _onlineUrl != null; }
         }
 
         public string? ProjectRoot { get; }
@@ -82,12 +217,16 @@ namespace EnvisDashboard
 
         public ServiceHost()
         {
+            _offlineAppDirectory = LocateOfflineApp();
+            _onlineUrl = ReadConfiguredOnlineUrl();
+            _syncToken = ReadConfiguredSyncToken();
+
             var configuredServer = ReadConfiguredServer();
-            if (configuredServer != null)
+            if (configuredServer != null || _onlineUrl != null)
             {
                 // Client mode: the host PC runs the services and owns the data.
                 _remoteServer = configuredServer;
-                BaseUrl = configuredServer;
+                BaseUrl = configuredServer ?? _onlineUrl!;
                 SetupError = string.Empty;
                 return;
             }
@@ -108,6 +247,258 @@ namespace EnvisDashboard
             }
 
             SetupError = string.Join(" ", problems);
+        }
+
+        /// <summary>
+        /// The offline copy installed beside the app configuration, or
+        /// ENVIS_OFFLINE_APP for a local test build.
+        /// </summary>
+        private static string? LocateOfflineApp()
+        {
+            var candidates = new List<string>();
+            var overridden = Environment.GetEnvironmentVariable("ENVIS_OFFLINE_APP");
+            if (!string.IsNullOrWhiteSpace(overridden)) candidates.Add(overridden.Trim());
+            candidates.Add(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ENVIS Dashboard",
+                "offline-app"));
+
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    if (File.Exists(Path.Combine(candidate, "index.html"))) return Path.GetFullPath(candidate);
+                }
+                catch
+                {
+                    // Ignore an unusable path and try the next one.
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Picks the office host, then the public site, then the installed copy.
+        /// Only called in client mode; local mode keeps starting the services.
+        /// </summary>
+        public async Task<bool> StartRemoteAsync(CancellationToken cancellationToken)
+        {
+            if (!IsRemote) return false;
+
+            if (await TryUseLiveHostAsync(cancellationToken).ConfigureAwait(false)) return true;
+
+            if (_offlineAppDirectory != null)
+            {
+                UseOfflineCopy();
+                AppendLog("[app] no live dashboard reachable; opening the offline copy at " + _offlineAppDirectory);
+                return false;
+            }
+
+            UseLiveHost();
+            AppendLog("[app] no live dashboard reachable and no offline copy is installed");
+            return false;
+        }
+
+        /// <summary>Adds the shared LAN sync token so /sync/* is not world-readable.</summary>
+        private HttpRequestMessage SyncRequest(string url)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrWhiteSpace(_syncToken))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + _syncToken);
+            }
+            return request;
+        }
+
+        private static async Task<bool> ProbeAsync(string? baseUrl, string path, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(baseUrl)) return false;
+
+            using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                timeout.CancelAfter(TimeSpan.FromSeconds(4));
+                try
+                {
+                    using (var response = await Http.GetAsync(
+                        baseUrl.TrimEnd('/') + path,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        timeout.Token).ConfigureAwait(false))
+                    {
+                        return response.IsSuccessStatusCode;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Off, wrong network, or no internet: try the next target.
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Copies new or changed datasets from the host into the offline copy.
+        /// Safe to call repeatedly; unchanged files are skipped by manifest mtime.
+        /// </summary>
+        public async Task<string> SyncOfflineCopyAsync(CancellationToken cancellationToken)
+        {
+            if (!IsRemote || _remoteServer == null || _offlineAppDirectory == null || IsOfflineCopy || IsOnlineLive)
+            {
+                return "offline sync skipped";
+            }
+
+            var offlineDir = _offlineAppDirectory;
+            var stateFile = Path.Combine(offlineDir, "sync.json");
+            var synced = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (File.Exists(stateFile))
+                {
+                    using (var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(stateFile)))
+                    {
+                        System.Text.Json.JsonElement files;
+                        if (document.RootElement.TryGetProperty("files", out files))
+                        {
+                            foreach (var property in files.EnumerateObject())
+                            {
+                                synced[property.Name] = property.Value.GetInt64();
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // A damaged state file only costs a full re-copy.
+                synced.Clear();
+            }
+
+            using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                timeout.CancelAfter(TimeSpan.FromMinutes(10));
+
+                string manifestText;
+                using (var request = SyncRequest(_remoteServer + "/sync/manifest.json"))
+                using (var manifest = await Http.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseContentRead,
+                    timeout.Token).ConfigureAwait(false))
+                {
+                    if (!manifest.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException(
+                            "The host does not offer data sync (HTTP " + (int)manifest.StatusCode + "). Update the project on the host PC.");
+                    }
+                    manifestText = await manifest.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+                }
+
+                var updated = 0;
+                var unchanged = 0;
+                using (var document = System.Text.Json.JsonDocument.Parse(manifestText))
+                {
+                    foreach (var entry in document.RootElement.GetProperty("files").EnumerateArray())
+                    {
+                        timeout.Token.ThrowIfCancellationRequested();
+                        var relative = entry.GetProperty("path").GetString();
+                        // Never let a manifest entry escape the offline data folder.
+                        if (string.IsNullOrWhiteSpace(relative) || relative.Contains("..") ||
+                            relative.Contains('\\') || Path.IsPathRooted(relative)) continue;
+
+                        var size = entry.GetProperty("size").GetInt64();
+                        var mtime = entry.GetProperty("mtime").GetInt64();
+                        var localPath = Path.Combine(offlineDir, "data",
+                            relative.Replace('/', Path.DirectorySeparatorChar));
+
+                        long knownMtime;
+                        if (synced.TryGetValue(relative, out knownMtime) && knownMtime == mtime &&
+                            File.Exists(localPath) && new FileInfo(localPath).Length == size)
+                        {
+                            unchanged += 1;
+                            continue;
+                        }
+
+                        var escaped = string.Join("/", relative.Split('/').Select(Uri.EscapeDataString));
+                        using (var request = SyncRequest(_remoteServer + "/sync/file/" + escaped))
+                        using (var response = await Http.SendAsync(
+                            request,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            timeout.Token).ConfigureAwait(false))
+                        {
+                            if (!response.IsSuccessStatusCode)
+                            {
+                                throw new InvalidOperationException(
+                                    "Cannot download data/" + relative + " (HTTP " + (int)response.StatusCode + ").");
+                            }
+
+                            Directory.CreateDirectory(Path.GetDirectoryName(localPath) ?? offlineDir);
+                            var temporary = localPath + ".new";
+                            using (var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+                            {
+                                await response.Content.CopyToAsync(output, timeout.Token).ConfigureAwait(false);
+                            }
+                            File.Move(temporary, localPath, true);
+                        }
+
+                        synced[relative] = mtime;
+                        updated += 1;
+                    }
+                }
+
+                var state = new StringBuilder();
+                state.AppendLine("{");
+                state.AppendLine("  \"syncedAt\": " + System.Text.Json.JsonSerializer.Serialize(DateTime.UtcNow.ToString("o")) + ",");
+                state.AppendLine("  \"host\": " + System.Text.Json.JsonSerializer.Serialize(_remoteServer) + ",");
+                state.AppendLine("  \"files\": {");
+                var first = true;
+                foreach (var pair in synced.OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!first) state.AppendLine(",");
+                    state.Append("    " + System.Text.Json.JsonSerializer.Serialize(pair.Key) + ": " + pair.Value);
+                    first = false;
+                }
+                state.AppendLine();
+                state.AppendLine("  }");
+                state.AppendLine("}");
+                File.WriteAllText(stateFile, state.ToString());
+
+                var summary = "offline copy: " + updated + " updated, " + unchanged + " unchanged";
+                AppendLog("[app] " + summary);
+                return summary;
+            }
+        }
+
+        /// <summary>Last successful sync time of the offline copy, or null.</summary>
+        public DateTime? OfflineSyncedAt()
+        {
+            if (_offlineAppDirectory == null) return null;
+            try
+            {
+                var stateFile = Path.Combine(_offlineAppDirectory, "sync.json");
+                if (!File.Exists(stateFile)) return null;
+                using (var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(stateFile)))
+                {
+                    System.Text.Json.JsonElement value;
+                    if (document.RootElement.TryGetProperty("syncedAt", out value))
+                    {
+                        DateTime parsed;
+                        if (DateTime.TryParse(value.GetString(), null,
+                            System.Globalization.DateTimeStyles.RoundtripKind, out parsed))
+                        {
+                            return parsed.ToLocalTime();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Treat an unreadable state file as "never synced".
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -145,12 +536,88 @@ namespace EnvisDashboard
             return null;
         }
 
+        private static string ConfigPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ENVIS Dashboard",
+                "config.json");
+        }
+
+        /// <summary>
+        /// The public dashboard URL written by the installer, or ENVIS_ONLINE_URL.
+        /// Null disables internet mode.
+        /// </summary>
+        private static string? ReadConfiguredOnlineUrl()
+        {
+            var parsed = NormalizeOnlineUrl(Environment.GetEnvironmentVariable("ENVIS_ONLINE_URL"));
+            if (parsed != null) return parsed;
+
+            try
+            {
+                var configPath = ConfigPath();
+                if (!File.Exists(configPath)) return null;
+                using (var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(configPath)))
+                {
+                    System.Text.Json.JsonElement value;
+                    if (document.RootElement.TryGetProperty("onlineUrl", out value))
+                    {
+                        return NormalizeOnlineUrl(value.GetString());
+                    }
+                }
+            }
+            catch
+            {
+                // A malformed config must not stop the app.
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Shared secret for the host's /sync endpoints. Env var overrides config
+        /// so the host process can be started with the MIS-issued token.
+        /// </summary>
+        private static string? ReadConfiguredSyncToken()
+        {
+            var fromEnvironment = Environment.GetEnvironmentVariable("ENVIS_SYNC_TOKEN");
+            if (!string.IsNullOrWhiteSpace(fromEnvironment)) return fromEnvironment.Trim();
+            try
+            {
+                if (!File.Exists(ConfigPath())) return null;
+                using (var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ConfigPath())))
+                {
+                    System.Text.Json.JsonElement value;
+                    if (document.RootElement.TryGetProperty("syncToken", out value))
+                    {
+                        var token = value.GetString();
+                        return string.IsNullOrWhiteSpace(token) ? null : token.Trim();
+                    }
+                }
+            }
+            catch
+            {
+                // A malformed config must not stop the app.
+            }
+            return null;
+        }
+
         private static string? NormalizeServer(string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
             if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)) return null;
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return null;
+            // Reject URLs that embed credentials in the authority (phishing).
+            if (!string.IsNullOrEmpty(uri.UserInfo)) return null;
             return uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/');
+        }
+
+        /// <summary>Public internet destinations must use TLS.</summary>
+        private static string? NormalizeOnlineUrl(string? value)
+        {
+            var parsed = NormalizeServer(value);
+            if (parsed == null) return null;
+            return parsed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? parsed : null;
         }
 
         private static string? LocateProjectRoot()
@@ -271,6 +738,12 @@ namespace EnvisDashboard
             var logsDirectory = Path.Combine(ProjectRoot!, "logs");
             Directory.CreateDirectory(logsDirectory);
 
+            // These paths are written into a .cmd file. Fail closed on shell
+            // metacharacters instead of trying to escape them.
+            ValidateShellPath(ProjectRoot!);
+            ValidateShellPath(NodePath!);
+            ValidateShellPath(ServicesLogFile);
+
             // Run through a tiny .cmd file that redirects the supervisor's own
             // output into a log file. Piping it into this app instead would mean
             // the pipe closes when the window exits, which can kill the services
@@ -300,6 +773,12 @@ namespace EnvisDashboard
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
+            // The token is passed through the environment, never written into a
+            // script or log file.
+            if (!string.IsNullOrWhiteSpace(_syncToken))
+            {
+                info.Environment["ENVIS_SYNC_TOKEN"] = _syncToken;
+            }
             info.ArgumentList.Add("/d");
             info.ArgumentList.Add("/c");
             info.ArgumentList.Add(launcher);
@@ -315,9 +794,22 @@ namespace EnvisDashboard
             return true;
         }
 
+        /// <summary>Rejects paths that would be reinterpreted by cmd.exe.</summary>
+        internal static void ValidateShellPath(string path)
+        {
+            if (path.IndexOfAny(new[] { '"', '%', '&', '|', '<', '>', '^', '!', '(', ')' }) >= 0)
+            {
+                throw new InvalidOperationException(
+                    "The configured dashboard path contains characters that cannot be used safely in a launcher. Move the project or change the path.");
+            }
+        }
+
         public async Task WaitUntilLiveAsync(TimeSpan timeout, Action<string>? progress, CancellationToken cancellationToken)
         {
             EnsureReady();
+
+            // The offline copy is local files; there is no service to wait for.
+            if (IsOfflineCopy) return;
 
             var watch = Stopwatch.StartNew();
             while (watch.Elapsed < timeout)
@@ -389,15 +881,27 @@ namespace EnvisDashboard
 
             if (IsRemote)
             {
-                text.AppendLine("Mode ........... Shared server (client)");
-                text.AppendLine("Dashboard ...... " + BaseUrl);
+                text.AppendLine("Mode ........... Client (LAN host, internet, or offline copy)");
+                text.AppendLine("Office host .... " + (_remoteServer ?? "(not configured)"));
+                text.AppendLine("Internet ....... " + (_onlineUrl ?? "(not configured)"));
+                text.AppendLine("Now showing .... " + (IsOfflineCopy
+                    ? "offline copy"
+                    : IsOnlineLive ? "live dashboard (internet)" : "live host data"));
+                var synced = OfflineSyncedAt();
+                if (_offlineAppDirectory == null)
+                {
+                    text.AppendLine("Offline copy ... not installed");
+                }
+                else
+                {
+                    text.AppendLine("Offline copy ... " + (synced == null
+                        ? "installed, waiting for its first sync"
+                        : "last synced " + synced.Value.ToString("yyyy-MM-dd HH:mm")));
+                    text.AppendLine("                 " + _offlineAppDirectory);
+                }
                 text.AppendLine();
-                text.AppendLine("Data and maps come from the host PC; this app starts no local services.");
-                text.AppendLine("To run locally instead, delete serverUrl from:");
-                text.AppendLine("  " + Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "ENVIS Dashboard",
-                    "config.json"));
+                text.AppendLine("On the office LAN the app uses the host's live data and refreshes the");
+                text.AppendLine("offline copy. On any other network it opens that copy automatically.");
                 return text.ToString();
             }
 

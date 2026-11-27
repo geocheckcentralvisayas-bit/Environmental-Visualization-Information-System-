@@ -2,6 +2,7 @@ import type { AccountRow, AuthContext, Env, Role, SessionUser } from './types';
 
 const PBKDF2_ITERATIONS = 210_000;
 const MAX_FAILED_ATTEMPTS = 8;
+const MAX_IP_FAILED_ATTEMPTS = 30;
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
 /* ------------------------------------------------------------------ */
@@ -286,40 +287,51 @@ export async function logActivity(
 /* ------------------------------------------------------------------ */
 
 /**
- * Creates a rate-limit bucket keyed by username only.
- * IP-based buckets are vulnerable to rotation attacks.
+ * Two independent buckets: a tight one per account and a wider one per client
+ * IP. The IP bucket stops password spraying across many usernames; the user
+ * bucket stops a single account being brute-forced even from rotating IPs.
  */
-function usernameBucket(username: string): string {
-  return `user:${username.toLowerCase()}`;
+function attemptBuckets(username: string, ip: string): Array<{ bucket: string; limit: number }> {
+  return [
+    { bucket: `user:${normalizeUsername(username)}`, limit: MAX_FAILED_ATTEMPTS },
+    { bucket: `ip:${ip}`, limit: MAX_IP_FAILED_ATTEMPTS },
+  ];
 }
 
-export async function assertLoginAllowed(env: Env, username: string): Promise<number> {
-  const bucket = usernameBucket(username);
+async function bucketRetryAfter(env: Env, bucket: string, limit: number): Promise<number> {
   const row = await env.DB.prepare('SELECT count, reset_at FROM login_attempts WHERE bucket = ?')
     .bind(bucket)
     .first<{ count: number; reset_at: number }>();
-  if (!row || row.reset_at <= Date.now()) return 0;
-  if (row.count < MAX_FAILED_ATTEMPTS) return 0;
+  if (!row || row.reset_at <= Date.now() || row.count < limit) return 0;
   return Math.max(1, Math.ceil((row.reset_at - Date.now()) / 1000));
 }
 
-export async function registerLoginFailure(env: Env, username: string): Promise<void> {
-  const bucket = usernameBucket(username);
+export async function assertLoginAllowed(env: Env, username: string, ip = 'local'): Promise<number> {
+  let retry = 0;
+  for (const entry of attemptBuckets(username, ip)) {
+    retry = Math.max(retry, await bucketRetryAfter(env, entry.bucket, entry.limit));
+  }
+  return retry;
+}
+
+export async function registerLoginFailure(env: Env, username: string, ip = 'local'): Promise<void> {
   const now = Date.now();
   const resetAt = now + ATTEMPT_WINDOW_MS;
-  await env.DB.prepare(
+  const statement = env.DB.prepare(
     `INSERT INTO login_attempts (bucket, count, reset_at) VALUES (?, 1, ?)
      ON CONFLICT(bucket) DO UPDATE SET
        count = CASE WHEN login_attempts.reset_at <= ? THEN 1 ELSE login_attempts.count + 1 END,
        reset_at = CASE WHEN login_attempts.reset_at <= ? THEN excluded.reset_at ELSE login_attempts.reset_at END`,
-  )
-    .bind(bucket, resetAt, now, now)
-    .run();
+  );
+  for (const entry of attemptBuckets(username, ip)) {
+    await statement.bind(entry.bucket, resetAt, now, now).run();
+  }
 }
 
-export async function clearLoginFailures(env: Env, username: string): Promise<void> {
-  const bucket = usernameBucket(username);
-  await env.DB.prepare('DELETE FROM login_attempts WHERE bucket = ?').bind(bucket).run();
+export async function clearLoginFailures(env: Env, username: string, ip = 'local'): Promise<void> {
+  for (const entry of attemptBuckets(username, ip)) {
+    await env.DB.prepare('DELETE FROM login_attempts WHERE bucket = ?').bind(entry.bucket).run();
+  }
 }
 
 export async function pruneLoginAttempts(env: Env): Promise<void> {

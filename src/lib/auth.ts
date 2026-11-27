@@ -1,4 +1,5 @@
-import { apiFetch, apiJson } from './api';
+import { apiFetch, apiJson, OFFLINE } from './api';
+import { isOfflineUnlocked, lockOffline, unlockOffline, verifyOfflinePassword } from './offlineAccess';
 
 export type Role = 'extraction' | 'rd' | 'emed' | 'cpd' | 'mis' | 'viewer' | 'gis';
 
@@ -52,6 +53,24 @@ export const ROLES: Role[] = ['extraction', 'rd', 'emed', 'cpd', 'mis', 'viewer'
  */
 let cachedSession: Session | null = null;
 
+/**
+ * The static offline copy has no API to authenticate against. It is unlocked
+ * with the single password an MIS user creates on the live dashboard; until
+ * then (or after sign-out) `loadSession` returns null and the gate stays up.
+ */
+const OFFLINE_SESSION: Session = {
+  username: 'offline',
+  role: 'viewer',
+  displayName: 'Offline copy',
+  division: 'ENVIS Region VII',
+  at: 0,
+};
+
+function offlineSession(): Session {
+  cachedSession = { ...OFFLINE_SESSION, at: Date.now() };
+  return cachedSession;
+}
+
 /** Must match the worker's SESSION_TTL_HOURS default; failing closed if the server uses a longer TTL is safe. */
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
@@ -63,6 +82,14 @@ export function getSession(): Session | null {
 }
 
 export async function loadSession(): Promise<Session | null> {
+  if (OFFLINE) {
+    // The gate, not the file system, decides: the offline copy is read-only.
+    if (!isOfflineUnlocked()) {
+      cachedSession = null;
+      return null;
+    }
+    return offlineSession();
+  }
   try {
     const response = await apiFetch('/session');
     if (!response.ok) {
@@ -78,6 +105,11 @@ export async function loadSession(): Promise<Session | null> {
 }
 
 export async function login(username: string, password: string): Promise<Session | null> {
+  if (OFFLINE) {
+    if (!(await verifyOfflinePassword(password))) return null;
+    unlockOffline();
+    return offlineSession();
+  }
   let response: Response;
   try {
     response = await apiFetch('/login', {
@@ -102,6 +134,11 @@ export async function login(username: string, password: string): Promise<Session
 }
 
 export async function logout(): Promise<void> {
+  if (OFFLINE) {
+    lockOffline();
+    cachedSession = null;
+    return;
+  }
   cachedSession = null;
   try {
     const response = await apiFetch('/logout', { method: 'POST' });
@@ -122,6 +159,12 @@ export async function verifyCredentials(
   password: string,
   purpose: 'export' | 'geojson',
 ): Promise<{ ok: boolean; message?: string }> {
+  if (OFFLINE) {
+    return {
+      ok: false,
+      message: 'This action needs the live dashboard. Connect this PC to the office LAN, then open the shared dashboard.',
+    };
+  }
   const response = await apiFetch('/verify', {
     method: 'POST',
     body: JSON.stringify({ username, password, purpose }),
