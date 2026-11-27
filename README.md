@@ -6,7 +6,11 @@
 [![React](https://img.shields.io/badge/React-19-61dafb)](#)
 [![License](https://img.shields.io/badge/license-MIS%20Credit-blue)](#)
 
-**Download the Windows app:** [ENVIS Dashboard Setup.exe (v1.4.0)](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/raw/envis-v1.4.0/downloads/ENVIS%20Dashboard%20Setup.exe) · [SHA-256 checksums](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/raw/envis-v1.4.0/downloads/SHA256SUMS.txt)
+**Download the Windows app:** [ENVIS Dashboard Setup.exe (v1.4.0)](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/raw/main/downloads/ENVIS%20Dashboard%20Setup.exe) · [SHA-256 checksums](https://github.com/geocheckcentralvisayas-bit/Environmental-Visualization-Information-System-/raw/main/downloads/SHA256SUMS.txt)
+
+The installer is stored with **Git LFS**, so GitHub's file page shows a small
+pointer file. Use the download link above (it redirects to the real 167 MB
+file), not the "Raw" text view on the file page.
 
 **ENVIS Region VII** is a browser-based environmental permits and compliance
 intelligence platform for **DENR-EMB Region VII**. It brings the region's
